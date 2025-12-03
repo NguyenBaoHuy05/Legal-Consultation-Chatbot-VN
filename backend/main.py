@@ -210,7 +210,8 @@ async def upload_files(files: List[UploadFile] = File(...), current_user: User =
     try:
         documents = rag_system.load_documents(saved_files)
         if documents:
-            print ([f.name for f in saved_files])
+            print (documents)
+            # return
             rag_system.create_vector_db(documents)
             
             # Save metadata to MongoDB
@@ -282,11 +283,7 @@ async def listFile(current_user: User = Depends(get_current_admin_user)):
         if "_id" in file:
             file["_id"] = str(file["_id"])
     return files
-@app.post("/admin/create-file")
-async def createFile(file: FileRecord, current_user: User = Depends(get_current_admin_user)):
-    file_dict = file.dict()
-    await db.files.insert_one(file_dict)
-    return {"status": "success", "message": f"File {file.filename} created"}
+
 @app.delete("/admin/delete-file/{filename}")
 async def deleteFile(filename: str, current_user: User = Depends(get_current_admin_user)):
     global rag_system
