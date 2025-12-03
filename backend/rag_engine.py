@@ -12,7 +12,7 @@ class RAGSystem:
         self.vector_db = None
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
-            chunk_overlap=200,
+            chunk_overlap=300,
             separators=["\n\n", "\n", " ", ""]
         )
         self.pinecone_api_key = pinecone_api_key
@@ -46,7 +46,11 @@ class RAGSystem:
                 # Attach metadata to each document
                 for doc in file_docs:
                     print("Adding metadata for document from file:", file.name)
+                    # Preserve existing metadata (like page number from PyPDFLoader)
+                    # Update source to be just the filename, not the full temp path
                     doc.metadata["source"] = file.name
+                    if "page" not in doc.metadata:
+                        doc.metadata["page"] = 0 # Default for text files
 
                 documents.extend(file_docs)
             finally:
@@ -99,7 +103,7 @@ class RAGSystem:
             print(f"Error creating vector database: {e}")
             return None
 
-    def retrieve(self, query, k=3):
+    def retrieve(self, query, k=5):
         """
         Retrieve the top k most relevant document chunks for a query.
         """

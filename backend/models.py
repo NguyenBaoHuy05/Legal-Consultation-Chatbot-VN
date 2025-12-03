@@ -52,3 +52,21 @@ class ChatEntry(BaseModel):
     sources: List[str] = []
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     username: str
+
+class Message(BaseModel):
+    role: str # "user" or "assistant"
+    content: str
+    sources: Optional[List[dict]] = [] # [{"content": "...", "source": "...", "page": 1}]
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class Conversation(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    session_id: str
+    user_id: str # username
+    title: str
+    messages: List[Message] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        allow_population_by_field_name = True

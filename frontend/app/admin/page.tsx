@@ -221,7 +221,7 @@ export default function AdminDashboard() {
   return (
     <div className="p-8 min-h-screen  overflow-y-auto">
       <ToastContainer />
-      <h1>Admin Dashboard 🛠️</h1>
+      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
       <button
         onClick={() => {
           localStorage.removeItem("token");
@@ -265,7 +265,9 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+        <div
+          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto"
+        >
           <h2>Quản Lý Tài Liệu</h2>
           <input
             type="file"

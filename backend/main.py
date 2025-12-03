@@ -37,6 +37,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.legal_chatbot
 chat_collection = db.chats
+conversations_collection = db.conversations
 users_collection = db.users
 
 @app.on_event("startup")
@@ -157,20 +158,57 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
     
-    # Save to MongoDB
-    chat_entry = {
-        "session_id": request.session_id,
-        "username": current_user.username,
-        "user_message": request.message,
-        "bot_response": response_text,
-        "sources": [doc.page_content for doc in context_chunks],
+    # Create Messages
+    user_msg = {
+        "role": "user",
+        "content": request.message,
         "timestamp": datetime.utcnow()
     }
-    await chat_collection.insert_one(chat_entry)
+    
+    formatted_sources = []
+    for doc in context_chunks:
+        formatted_sources.append({
+            "content": doc.page_content,
+            "source": doc.metadata.get("source", "Unknown"),
+            "page": doc.metadata.get("page", 0) + 1 # Convert 0-index to 1-index for display
+        })
+
+    bot_msg = {
+        "role": "assistant",
+        "content": response_text,
+        "sources": formatted_sources,
+        "timestamp": datetime.utcnow()
+    }
+
+    # Update Conversation in MongoDB
+    # Try to find existing conversation
+    existing_conv = await conversations_collection.find_one({"session_id": request.session_id, "user_id": current_user.username})
+    
+    if existing_conv:
+        await conversations_collection.update_one(
+            {"session_id": request.session_id},
+            {
+                "$push": {"messages": {"$each": [user_msg, bot_msg]}},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+    else:
+        # Create new conversation
+        # Generate title from first message (first 50 chars)
+        title = request.message[:50] + "..." if len(request.message) > 50 else request.message
+        new_conv = {
+            "session_id": request.session_id,
+            "user_id": current_user.username,
+            "title": title,
+            "messages": [user_msg, bot_msg],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await conversations_collection.insert_one(new_conv)
     
     return {
         "response": response_text,
-        "sources": [{"content": doc.page_content, "source": doc.metadata.get("source", "Unknown")} for doc in context_chunks]
+        "sources": formatted_sources
     }
 
 @app.post("/admin/upload")
@@ -254,16 +292,29 @@ async def update_user_status(username: str, disabled: bool = Body(..., embed=Tru
         raise HTTPException(status_code=404, detail="User not found")
     return {"status": "success", "message": f"User {username} disabled status set to {disabled}"}
 
+@app.get("/history", response_model=List[dict])
+async def get_history_list(current_user: User = Depends(get_current_active_user)):
+    # Return list of conversations (id, title, date)
+    cursor = conversations_collection.find({"user_id": current_user.username}).sort("updated_at", -1)
+    conversations = await cursor.to_list(length=100)
+    result = []
+    for conv in conversations:
+        result.append({
+            "session_id": conv["session_id"],
+            "title": conv.get("title", "New Chat"),
+            "updated_at": conv["updated_at"]
+        })
+    return result
+
 @app.get("/history/{session_id}")
-async def get_history(session_id: str, current_user: User = Depends(get_current_active_user)):
-    # Users can only see their own history? Or just by session ID if they have it?
-    # Let's restrict to own history if we track sessions per user.
-    # For now, just return by session_id but ensure it belongs to user if we stored username.
-    cursor = chat_collection.find({"session_id": session_id, "username": current_user.username})
-    history = await cursor.to_list(length=100)
-    for doc in history:
-        doc["_id"] = str(doc["_id"])
-    return history
+async def get_history_detail(session_id: str, current_user: User = Depends(get_current_active_user)):
+    conv = await conversations_collection.find_one({"session_id": session_id, "user_id": current_user.username})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    if "_id" in conv:
+        conv["_id"] = str(conv["_id"])
+    return conv
 
 @app.delete("/admin/deleteAll")
 async def delete_all_data(current_user: User = Depends(get_current_admin_user)):
