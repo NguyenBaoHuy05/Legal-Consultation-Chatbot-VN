@@ -30,56 +30,56 @@ export default function Signup() {
   };
 
   return (
-    <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
-      <div style={{padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', width: '300px'}}>
-        <h2 style={{textAlign: 'center'}}>Đăng Ký</h2>
-        {error && <p style={{color: 'red', fontSize: '0.9em'}}>{error}</p>}
+    <div className="flex justify-center items-center h-screen">
+      <div className="p-8 bg-white rounded-lg shadow-lg w-[300px]">
+        <h2 className="text-center text-2xl font-bold mb-4">Đăng Ký</h2>
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
         <form onSubmit={handleSignup}>
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Username</label>
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">Username</label>
             <input 
               type="text" 
               value={username} 
               onChange={(e) => setUsername(e.target.value)}
-              style={{width: '100%', padding: '0.5rem'}}
+              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
-            <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Full Name</label>
+            <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">Full Name</label>
             <input 
               type="text" 
               value={fullName} 
               onChange={(e) => setFullName(e.target.value)}
-              style={{width: '100%', padding: '0.5rem'}}
+              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Email</label>
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">Email</label>
             <input 
               type="email" 
               value={email} 
               onChange={(e) => setEmail(e.target.value)}
-              style={{width: '100%', padding: '0.5rem'}}
+              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Password</label>
+          <div className="mb-6">
+            <label className="block mb-2 text-sm font-medium text-gray-700">Password</label>
             <input 
               type="password" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)}
-              style={{width: '100%', padding: '0.5rem'}}
+              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
-          <button type="submit" style={{width: '100%', padding: '0.7rem', background: '#ff4b4b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+          <button type="submit" className="w-full p-3 bg-red-500 text-white rounded cursor-pointer hover:bg-red-600 transition-colors">
             Đăng Ký
           </button>
         </form>
-        <p style={{marginTop: '1rem', textAlign: 'center', fontSize: '0.9em'}}>
-          Đã có tài khoản? <a href="/login">Đăng nhập</a>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Đã có tài khoản? <a href="/login" className="text-blue-500 hover:underline">Đăng nhập</a>
         </p>
       </div>
     </div>

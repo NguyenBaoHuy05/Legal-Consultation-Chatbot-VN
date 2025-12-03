@@ -106,7 +106,7 @@ export default function Home() {
     router.push('/login');
   };
 
-  if (!user) return <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>Loading...</div>;
+  if (!user) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
   return (
     <div className="container">
@@ -122,26 +122,26 @@ export default function Home() {
         </button>
 
         {showSettings && (
-          <div className="config-section" style={{marginTop: '10px'}}>
-            <label style={{fontSize: '0.9em'}}>Gemini API Key</label>
+          <div className="config-section mt-2.5">
+            <label className="text-sm">Gemini API Key</label>
             <input 
               type="password" 
               value={geminiKey} 
               onChange={(e) => setGeminiKey(e.target.value)}
-              style={{width: '100%', padding: '5px', margin: '5px 0'}}
+              className="w-full p-1.5 my-1.5 border rounded text-black"
             />
-            <button className="btn" onClick={saveGeminiKey} style={{background: '#4CAF50'}}>Lưu</button>
+            <button className="btn bg-green-500 hover:bg-green-600" onClick={saveGeminiKey}>Lưu</button>
           </div>
         )}
 
         {user.role === 'admin' && (
-          <button className="btn" onClick={() => router.push('/admin')} style={{marginTop: '10px', background: '#2196F3'}}>
+          <button className="btn mt-2.5 bg-blue-500 hover:bg-blue-600" onClick={() => router.push('/admin')}>
             Đến Admin Dashboard
           </button>
         )}
         
-        <div className="config-section" style={{marginTop: 'auto'}}>
-          <p style={{fontSize: '0.8em', color: '#666'}}>
+        <div className="config-section mt-auto">
+          <p className="text-xs text-gray-400">
             Hệ thống sử dụng Pinecone Database chung. Bạn chỉ cần cung cấp Gemini Key để chat.
           </p>
         </div>
@@ -164,7 +164,7 @@ export default function Home() {
                   <details>
                     <summary>Nguồn tham khảo ({msg.sources.length})</summary>
                     {msg.sources.map((src, i) => (
-                      <div key={i} style={{marginTop: '8px', fontSize: '0.9em', paddingLeft: '10px', borderLeft: '2px solid #ddd'}}>
+                      <div key={i} className="mt-2 text-sm pl-2.5 border-l-2 border-gray-300">
                         <strong>Nguồn {i+1}:</strong> {src.content.substring(0, 150)}...
                       </div>
                     ))}

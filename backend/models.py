@@ -20,11 +20,16 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = None
 
 class FileRecord(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
     filename: str
     upload_date: datetime = Field(default_factory=datetime.utcnow)
     uploaded_by: str
-    num_pages: int
-    status: str  # e.g., "processed", "pending
+    num_pages: Optional[int] = 0
+    size: Optional[int] = 0
+    status: str  # e.g., "processed", "pending"
+
+    class Config:
+        allow_population_by_field_name = True
 
 class Token(BaseModel):
     access_token: str

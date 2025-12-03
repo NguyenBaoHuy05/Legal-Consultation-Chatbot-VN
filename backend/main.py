@@ -180,10 +180,15 @@ async def upload_files(files: List[UploadFile] = File(...), current_user: User =
         raise HTTPException(status_code=503, detail="RAG System not configured")
         
     saved_files = []
+    file_metadata = []
+
     for file in files:
         file_location = f"temp_{file.filename}"
+        content = await file.read() # Read async
         with open(file_location, "wb+") as file_object:
-            file_object.write(file.file.read())
+            file_object.write(content)
+        
+        file_size = len(content)
         
         class FileWrapper:
             def __init__(self, path, name):
@@ -194,12 +199,24 @@ async def upload_files(files: List[UploadFile] = File(...), current_user: User =
                     return f.read()
         
         saved_files.append(FileWrapper(file_location, file.filename))
+        file_metadata.append({
+            "filename": file.filename,
+            "size": file_size,
+            "upload_date": datetime.utcnow(),
+            "uploaded_by": current_user.username,
+            "status": "processed"
+        })
 
     try:
         documents = rag_system.load_documents(saved_files)
         if documents:
             print ([f.name for f in saved_files])
             rag_system.create_vector_db(documents)
+            
+            # Save metadata to MongoDB
+            if file_metadata:
+                await db.files.insert_many(file_metadata)
+                
             return {"message": f"Successfully processed {len(documents)} documents"}
         else:
             raise HTTPException(status_code=400, detail="No documents processed")
@@ -257,10 +274,13 @@ async def delete_all_data(current_user: User = Depends(get_current_admin_user)):
     await chat_collection.delete_many({})
     return {"status": "success", "message": "All chat history and Pinecone data deleted"}
     
-@app.get("/admin/list-file", response_model=FileRecord)
-async def listFile(all: FileRecord = Depends(get_current_admin_user)):
+@app.get("/admin/list-file", response_model=List[FileRecord], response_model_by_alias=True)
+async def listFile(current_user: User = Depends(get_current_admin_user)):
     files_cursor = db.files.find({})
     files = await files_cursor.to_list(length=100)
+    for file in files:
+        if "_id" in file:
+            file["_id"] = str(file["_id"])
     return files
 @app.post("/admin/create-file")
 async def createFile(file: FileRecord, current_user: User = Depends(get_current_admin_user)):

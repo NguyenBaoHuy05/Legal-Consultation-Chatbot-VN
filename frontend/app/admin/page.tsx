@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.API_URL || "http://localhost:8000";
 
 interface DbFile {
   _id: string;
@@ -16,6 +16,7 @@ interface DbFile {
 }
 
 export default function AdminDashboard() {
+
   const [pineconeKey, setPineconeKey] = useState("");
   const [pineconeIndex, setPineconeIndex] = useState("legal-chatbot");
   const [files, setFiles] = useState<File[] | null>(null);
@@ -103,7 +104,7 @@ export default function AdminDashboard() {
           pinecone_index_name: pineconeIndex,
           gemini_api_key: "unused_by_admin_config",
         },
-        {
+        { 
           headers: { Authorization: `Bearer ${token}` },
         }
       );
@@ -141,16 +142,21 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) {
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setUploadedFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleUpload = async () => {
+    if (uploadedFiles.length === 0) {
       toast.error("No files selected.");
       return;
     }
 
     const token = localStorage.getItem("token");
     const formData = new FormData();
-    for (let file of selectedFiles) {
+    for (let file of uploadedFiles) {
       const isDuplicate = dbFiles.some(
         (dbFile) => dbFile.filename === file.name
       );
@@ -174,6 +180,7 @@ export default function AdminDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setDbFiles(response.data);
+      setUploadedFiles([]);
     } catch (error) {
       toast.error("Failed to upload files.");
     }
@@ -211,7 +218,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ padding: "2rem", minHeight: "100vh" }}>
+    <div className="p-8 min-h-screen  overflow-y-auto">
       <ToastContainer />
       <h1>Admin Dashboard 🛠️</h1>
       <button
@@ -219,135 +226,77 @@ export default function AdminDashboard() {
           localStorage.removeItem("token");
           router.push("/login");
         }}
-        style={{ float: "right", padding: "5px 10px" }}
+        className="float-right px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
       >
         Logout
       </button>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div
-          style={{
-            marginTop: "2rem",
-            padding: "1rem",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            background: "white",
-          }}
+          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
         >
           <h2>Cấu Hình Hệ Thống (Pinecone)</h2>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block" }}>Pinecone API Key</label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Pinecone API Key</label>
             <input
               type="password"
               value={pineconeKey}
               onChange={(e) => setPineconeKey(e.target.value)}
-              style={{ width: "100%", padding: "8px", marginTop: "5px" }}
+              className="w-full p-2 mt-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block" }}>Index Name</label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Index Name</label>
             <input
               type="text"
               value={pineconeIndex}
               onChange={(e) => setPineconeIndex(e.target.value)}
-              style={{ width: "100%", padding: "8px", marginTop: "5px" }}
+              className="w-full p-2 mt-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
           <button
             onClick={handleConfig}
-            style={{
-              padding: "10px 20px",
-              background: "#333",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-            }}
+            className="px-5 py-2.5 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors"
           >
             Lưu Cấu Hình
           </button>
         </div>
 
         <div
-          style={{
-            marginTop: "2rem",
-            padding: "1rem",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            background: "white",
-          }}
+          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
         >
           <h2>Quản Lý Tài Liệu</h2>
           <input
             type="file"
             multiple
             accept=".pdf,.txt"
-            onChange={handleUploadFiles}
-            style={{ marginBottom: "1rem" }}
+            onChange={handleFileSelection}
+            className="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           <br />
           <button
-            onClick={() => {
-              if (uploadedFiles.length === 0) {
-                toast.error("Vui lòng chọn ít nhất một file để upload.");
-                return;
-              }
-              setFiles(uploadedFiles);
-              toast.success(
-                "File đã được tải lên thành công. Vui lòng kiểm tra danh sách file."
-              );
-            }}
-            style={{
-              padding: "10px 20px",
-              background: "#4caf50",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              marginRight: "10px",
-            }}
+            onClick={handleUpload}
+            className="px-5 py-2.5 bg-green-500 text-white rounded mr-2 hover:bg-green-600 transition-colors"
           >
             Upload
           </button>
           <button
             onClick={handleSendToPinecone}
-            style={{
-              padding: "10px 20px",
-              background: "#2196f3",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-            }}
+            className="px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             Send PineCone
           </button>
 
           {uploadedFiles.length > 0 && (
-            <div style={{ marginTop: "1rem" }}>
+            <div className="mt-4">
               <h3>Danh sách file đã tải lên:</h3>
               <ul>
                 {uploadedFiles.map((file, index) => (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: "5px",
-                      justifyContent: "space-between",
-                    }}
-                    key={index}
-                  >
+                    <div className="flex flex-row items-center mb-1.5 justify-between bg-gray-50 p-2 rounded" key={index}>
                     <li key={index}>{file.name}</li>
                     <div
                       onClick={() => handleDeleteFile(index)}
-                      style={{
-                        background: "#bb4242ff",
-                        padding: "5px 10px",
-                        borderRadius: "4px",
-                        color: "white",
-                        cursor: "pointer",
-                        marginLeft: "10px",
-                      }}
+                      className="bg-red-700 px-2.5 py-1.5 rounded text-white cursor-pointer ml-2.5 hover:bg-red-800 transition-colors text-sm"
                     >
                       Xóa
                     </div>
@@ -360,72 +309,50 @@ export default function AdminDashboard() {
       </div>
 
       <div
-        style={{
-          marginTop: "2rem",
-          padding: "1rem",
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          background: "white",
-        }}
+        className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
       >
         <h2>Quản Lý Người Dùng</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="w-full border-collapse">
           <thead>
-            <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
-              <th style={{ padding: "10px" }}>Username</th>
-              <th style={{ padding: "10px" }}>Full Name</th>
-              <th style={{ padding: "10px" }}>Email</th>
-              <th style={{ padding: "10px" }}>Role</th>
-              <th style={{ padding: "10px" }}>Status</th>
-              <th style={{ padding: "10px" }}>Action</th>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-2.5 font-semibold text-gray-700">Username</th>
+              <th className="p-2.5 font-semibold text-gray-700">Full Name</th>
+              <th className="p-2.5 font-semibold text-gray-700">Email</th>
+              <th className="p-2.5 font-semibold text-gray-700">Role</th>
+              <th className="p-2.5 font-semibold text-gray-700">Status</th>
+              <th className="p-2.5 font-semibold text-gray-700">Action</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
               <tr
                 key={user.username}
-                style={{ borderBottom: "1px solid #eee" }}
+                className="border-b border-gray-200 hover:bg-gray-50"
               >
-                <td style={{ padding: "10px" }}>{user.username}</td>
-                <td style={{ padding: "10px" }}>{user.full_name}</td>
-                <td style={{ padding: "10px" }}>{user.email}</td>
-                <td style={{ padding: "10px" }}>
+                <td className="p-2.5">{user.username}</td>
+                <td className="p-2.5">{user.full_name}</td>
+                <td className="p-2.5">{user.email}</td>
+                <td className="p-2.5">
                   <span
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      background: user.role === "admin" ? "#e3f2fd" : "#f5f5f5",
-                      color: user.role === "admin" ? "#1976d2" : "#616161",
-                      fontSize: "0.9em",
-                    }}
+                    className={`px-2 py-1 rounded text-sm ${user.role === "admin" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
                   >
                     {user.role}
                   </span>
                 </td>
-                <td style={{ padding: "10px" }}>
+                <td className="p-2.5">
                   <span
-                    style={{
-                      color: user.disabled ? "red" : "green",
-                      fontWeight: "bold",
-                    }}
+                    className={`font-bold ${user.disabled ? "text-red-500" : "text-green-500"}`}
                   >
                     {user.disabled ? "Disabled" : "Active"}
                   </span>
                 </td>
-                <td style={{ padding: "10px" }}>
+                <td className="p-2.5">
                   {user.role !== "admin" && (
                     <button
                       onClick={() =>
                         toggleUserStatus(user.username, user.disabled)
                       }
-                      style={{
-                        padding: "5px 10px",
-                        background: user.disabled ? "#4caf50" : "#f44336",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className={`px-2.5 py-1.5 text-white rounded cursor-pointer border-none ${user.disabled ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}`}
                     >
                       {user.disabled ? "Enable" : "Disable"}
                     </button>
@@ -438,45 +365,32 @@ export default function AdminDashboard() {
       </div>
 
       <div
-        style={{
-          marginTop: "2rem",
-          padding: "1rem",
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          background: "white",
-        }}
+        className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm h-[calc(100vh-200px)"
       >
         <h2>Danh sách file đã upload</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="w-full border-collapse">
           <thead>
-            <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
-              <th style={{ padding: "10px" }}>Tên file</th>
-              <th style={{ padding: "10px" }}>Ngày upload</th>
-              <th style={{ padding: "10px" }}>Dung lượng</th>
-              <th style={{ padding: "10px" }}>Hành động</th>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-2.5 font-semibold text-gray-700">Tên file</th>
+              <th className="p-2.5 font-semibold text-gray-700">Ngày upload</th>
+              <th className="p-2.5 font-semibold text-gray-700">Dung lượng</th>
+              <th className="p-2.5 font-semibold text-gray-700">Hành động</th>
             </tr>
           </thead>
           <tbody>
             {dbFiles.map((file) => (
-              <tr key={file._id} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: "10px" }}>{file.filename}</td>
-                <td style={{ padding: "10px" }}>
+              <tr key={file._id} className="border-b border-gray-200 hover:bg-gray-50">
+                <td className="p-2.5">{file.filename}</td>
+                <td className="p-2.5">
                   {new Date(file.upload_date).toLocaleDateString("vi-VN")}
                 </td>
-                <td style={{ padding: "10px" }}>
+                <td className="p-2.5">
                   {(file.size / 1024).toFixed(2)} KB
                 </td>
-                <td style={{ padding: "10px" }}>
+                <td className="p-2.5">
                   <button
                     onClick={() => handleDeleteFileFromDb(file._id)}
-                    style={{
-                      padding: "5px 10px",
-                      background: "#f44336",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    className="px-2.5 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                   >
                     Xóa
                   </button>
@@ -487,14 +401,7 @@ export default function AdminDashboard() {
         </table>
         <button
           onClick={handleDeleteAllFiles}
-          style={{
-            marginTop: "1rem",
-            padding: "10px 20px",
-            background: "#f44336",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-          }}
+            className="mt-4 px-5 py-2.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
         >
           Xóa tất cả
         </button>
@@ -502,13 +409,7 @@ export default function AdminDashboard() {
 
       {status && (
         <div
-          style={{
-            marginTop: "1rem",
-            padding: "1rem",
-            background: "#eee",
-            borderRadius: "4px",
-            textAlign: "center",
-          }}
+          className="mt-4 p-4 bg-gray-200 rounded text-center"
         >
           {status}
         </div>
