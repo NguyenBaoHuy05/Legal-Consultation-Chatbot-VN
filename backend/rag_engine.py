@@ -61,41 +61,43 @@ class RAGSystem:
         Create (or update) a Pinecone vector database from a list of Documents.
         """
         if not documents or not self.pinecone_api_key or not self.index_name:
+            print("Missing documents, API key, or index name.")
             return None
 
         chunks = self.text_splitter.split_documents(documents)
+        # print(f"Chunks: {chunks}")
 
         # Initialize Pinecone Client to check/create index
         pc = Pinecone(api_key=self.pinecone_api_key)
 
         existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
+        print(f"Existing indexes: {existing_indexes}")
 
         if self.index_name not in existing_indexes:
-            # Create a serverless index if it doesn't exist
-            # Note: This assumes using the free tier or standard serverless config
             try:
                 pc.create_index(
                     name=self.index_name,
-                    dimension=768, # keepitreal/vietnamese-sbert dimension
+                    dimension=768,
                     metric="cosine",
-                    spec=ServerlessSpec(
-                        cloud="aws",
-                        region="us-east-1"
-                    ) 
+                    spec=ServerlessSpec(cloud="aws", region="us-east-1")
                 )
-                # Wait for index to be ready
                 while not pc.describe_index(self.index_name).status['ready']:
                     time.sleep(1)
             except Exception as e:
                 print(f"Error creating index: {e}")
                 return None
 
-        self.vector_db = PineconeVectorStore.from_documents(
-            documents=chunks, 
-            embedding=self.embeddings, 
-            index_name=self.index_name,
-        )
-        return self.vector_db
+        try:
+            self.vector_db = PineconeVectorStore.from_documents(
+                documents=chunks,
+                embedding=self.embeddings, 
+                index_name=self.index_name,
+            )
+            print("Vector database created successfully.")
+            return self.vector_db
+        except Exception as e:
+            print(f"Error creating vector database: {e}")
+            return None
 
     def retrieve(self, query, k=3):
         """
@@ -151,9 +153,11 @@ class RAGSystem:
             if not self.load_index():
                 return False
         try:
-            self.vector_db.delete(filter={
-                "source": {"$eq": source}
-            },)
+            print(f"Attempting to delete vectors with source: {source}")
+            
+            self.vector_db.index.delete(filter={"source": source})
+            
+            print(f"Successfully deleted vectors with source: {source}")
             return True
         except Exception as e:
             print(f"Error deleting vectors: {e}")

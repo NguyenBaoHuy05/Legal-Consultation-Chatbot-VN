@@ -6,17 +6,17 @@ import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_URL = process.env.API_URL || "http://localhost:8000";
-
-interface DbFile {
-  _id: string;
+interface FileRecord {
   filename: string;
-  upload_date: string;
   size: number;
+  upload_date: string;
+  uploaded_by: string;
+  status: string;
 }
 
-export default function AdminDashboard() {
+const API_URL = process.env.API_URL || "http://localhost:8000";
 
+export default function AdminDashboard() {
   const [pineconeKey, setPineconeKey] = useState("");
   const [pineconeIndex, setPineconeIndex] = useState("legal-chatbot");
   const [files, setFiles] = useState<File[] | null>(null);
@@ -25,7 +25,7 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [dbFiles, setDbFiles] = useState<DbFile[]>([]);
+  const [dbFiles, setDbFiles] = useState<FileRecord[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
           pinecone_index_name: pineconeIndex,
           gemini_api_key: "unused_by_admin_config",
         },
-        { 
+        {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
@@ -114,14 +114,14 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteFileFromDb = async (fileId: string) => {
+  const handleDeleteFileFromDb = async (fileName: string) => {
     const token = localStorage.getItem("token");
     try {
-      await axios.delete(`${API_URL}/admin/delete-file/${fileId}`, {
+      await axios.delete(`${API_URL}/admin/delete-file/${fileName}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setDbFiles((prevFiles) =>
-        prevFiles.filter((file) => file._id !== fileId)
+        prevFiles.filter((file) => file.filename !== fileName)
       );
       toast.success("File deleted successfully.");
     } catch (error) {
@@ -148,9 +148,13 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpload = async () => {
+  const handleDeleteFile = (index: number) => {
+    setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  };
+
+  const handleSendToPinecone = async () => {
     if (uploadedFiles.length === 0) {
-      toast.error("No files selected.");
+      toast.error("Không có file nào để gửi đến Pinecone.");
       return;
     }
 
@@ -167,42 +171,9 @@ export default function AdminDashboard() {
       formData.append("files", file);
     }
 
-    try {
-      await axios.post(`${API_URL}/admin/upload`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      toast.success("Files uploaded successfully.");
-      // Refresh file list
-      const response = await axios.get(`${API_URL}/admin/list-file`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setDbFiles(response.data);
-      setUploadedFiles([]);
-    } catch (error) {
-      toast.error("Failed to upload files.");
-    }
-  };
-
-  const handleDeleteFile = (index: number) => {
-    setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
-  };
-
-  const handleSendToPinecone = async () => {
-    if (uploadedFiles.length === 0) {
-      toast.error("Không có file nào để gửi đến Pinecone.");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const formData = new FormData();
-    uploadedFiles.forEach((file) => {
-      formData.append("files", file);
-    });
-
     setStatus("Đang gửi file đến Pinecone...");
+    // console.log("Uploading files:", formData.getAll("files"));
+    // return
     try {
       await axios.post(`${API_URL}/admin/upload`, formData, {
         headers: {
@@ -212,9 +183,39 @@ export default function AdminDashboard() {
       });
       setStatus("Gửi file đến Pinecone thành công!");
       setUploadedFiles([]); // Clear uploaded files after sending
+      setDbFiles((prevDbFiles) => [
+        ...prevDbFiles,
+        ...uploadedFiles.map((file) => ({
+          filename: file.name,
+          size: file.size,
+          upload_date: new Date().toISOString(),
+          uploaded_by: "admin",
+          status: "processed",
+        })),
+      ]);
+      toast.success("Files sent to Pinecone successfully.");
     } catch (error) {
       setStatus("Lỗi khi gửi file đến Pinecone!");
     }
+    // try {
+    //   for (const file of uploadedFiles) {
+    //     const response = await axios.post(
+    //       `${API_URL}/admin/create-file`,
+    //       {
+    //         filename: file.name,
+    //         size: file.size,
+    //         upload_date: new Date().toISOString(),
+    //         uploaded_by: "admin",
+    //         status: "processed",
+    //       }, // Gửi từng file
+    //       { headers: { Authorization: `Bearer ${token}` } }
+    //     );
+    //     console.log(`File ${file.name} created successfully:`, response.data);
+    //     setDbFiles((prevDbFiles) => [...prevDbFiles, response.data]);
+    //   }
+    // } catch (error) {
+    //   console.error("Failed to create file record:", error);
+    // }
   };
 
   return (
@@ -232,12 +233,12 @@ export default function AdminDashboard() {
       </button>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div
-          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
-        >
+        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h2>Cấu Hình Hệ Thống (Pinecone)</h2>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Pinecone API Key</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Pinecone API Key
+            </label>
             <input
               type="password"
               value={pineconeKey}
@@ -246,7 +247,9 @@ export default function AdminDashboard() {
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Index Name</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Index Name
+            </label>
             <input
               type="text"
               value={pineconeIndex}
@@ -262,9 +265,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        <div
-          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
-        >
+        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h2>Quản Lý Tài Liệu</h2>
           <input
             type="file"
@@ -274,12 +275,6 @@ export default function AdminDashboard() {
             className="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           <br />
-          <button
-            onClick={handleUpload}
-            className="px-5 py-2.5 bg-green-500 text-white rounded mr-2 hover:bg-green-600 transition-colors"
-          >
-            Upload
-          </button>
           <button
             onClick={handleSendToPinecone}
             className="px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
@@ -292,7 +287,10 @@ export default function AdminDashboard() {
               <h3>Danh sách file đã tải lên:</h3>
               <ul>
                 {uploadedFiles.map((file, index) => (
-                    <div className="flex flex-row items-center mb-1.5 justify-between bg-gray-50 p-2 rounded" key={index}>
+                  <div
+                    className="flex flex-row items-center mb-1.5 justify-between bg-gray-50 p-2 rounded"
+                    key={index}
+                  >
                     <li key={index}>{file.name}</li>
                     <div
                       onClick={() => handleDeleteFile(index)}
@@ -307,10 +305,48 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
-
-      <div
-        className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
-      >
+      <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm h-[calc(100vh-200px)">
+        <h2>Danh sách file đã upload</h2>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-2.5 font-semibold text-gray-700">Tên file</th>
+              <th className="p-2.5 font-semibold text-gray-700">Ngày upload</th>
+              <th className="p-2.5 font-semibold text-gray-700">Dung lượng</th>
+              <th className="p-2.5 font-semibold text-gray-700">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dbFiles.map((file) => (
+              <tr
+                key={file.filename}
+                className="border-b border-gray-200 hover:bg-gray-50"
+              >
+                <td className="p-2.5">{file.filename}</td>
+                <td className="p-2.5">
+                  {new Date(file.upload_date).toLocaleDateString("vi-VN")}
+                </td>
+                <td className="p-2.5">{(file.size / 1024).toFixed(2)} KB</td>
+                <td className="p-2.5">
+                  <button
+                    onClick={() => handleDeleteFileFromDb(file.filename)}
+                    className="px-2.5 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                  >
+                    Xóa
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button
+          onClick={handleDeleteAllFiles}
+          className="mt-4 px-5 py-2.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        >
+          Xóa tất cả
+        </button>
+      </div>
+      <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
         <h2>Quản Lý Người Dùng</h2>
         <table className="w-full border-collapse">
           <thead>
@@ -334,14 +370,20 @@ export default function AdminDashboard() {
                 <td className="p-2.5">{user.email}</td>
                 <td className="p-2.5">
                   <span
-                    className={`px-2 py-1 rounded text-sm ${user.role === "admin" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                    className={`px-2 py-1 rounded text-sm ${
+                      user.role === "admin"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
                   >
                     {user.role}
                   </span>
                 </td>
                 <td className="p-2.5">
                   <span
-                    className={`font-bold ${user.disabled ? "text-red-500" : "text-green-500"}`}
+                    className={`font-bold ${
+                      user.disabled ? "text-red-500" : "text-green-500"
+                    }`}
                   >
                     {user.disabled ? "Disabled" : "Active"}
                   </span>
@@ -352,7 +394,11 @@ export default function AdminDashboard() {
                       onClick={() =>
                         toggleUserStatus(user.username, user.disabled)
                       }
-                      className={`px-2.5 py-1.5 text-white rounded cursor-pointer border-none ${user.disabled ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}`}
+                      className={`px-2.5 py-1.5 text-white rounded cursor-pointer border-none ${
+                        user.disabled
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "bg-red-500 hover:bg-red-600"
+                      }`}
                     >
                       {user.disabled ? "Enable" : "Disable"}
                     </button>
@@ -364,55 +410,8 @@ export default function AdminDashboard() {
         </table>
       </div>
 
-      <div
-        className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm h-[calc(100vh-200px)"
-      >
-        <h2>Danh sách file đã upload</h2>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-2.5 font-semibold text-gray-700">Tên file</th>
-              <th className="p-2.5 font-semibold text-gray-700">Ngày upload</th>
-              <th className="p-2.5 font-semibold text-gray-700">Dung lượng</th>
-              <th className="p-2.5 font-semibold text-gray-700">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dbFiles.map((file) => (
-              <tr key={file._id} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="p-2.5">{file.filename}</td>
-                <td className="p-2.5">
-                  {new Date(file.upload_date).toLocaleDateString("vi-VN")}
-                </td>
-                <td className="p-2.5">
-                  {(file.size / 1024).toFixed(2)} KB
-                </td>
-                <td className="p-2.5">
-                  <button
-                    onClick={() => handleDeleteFileFromDb(file._id)}
-                    className="px-2.5 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                  >
-                    Xóa
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button
-          onClick={handleDeleteAllFiles}
-            className="mt-4 px-5 py-2.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          Xóa tất cả
-        </button>
-      </div>
-
       {status && (
-        <div
-          className="mt-4 p-4 bg-gray-200 rounded text-center"
-        >
-          {status}
-        </div>
+        <div className="mt-4 p-4 bg-gray-200 rounded text-center">{status}</div>
       )}
     </div>
   );
