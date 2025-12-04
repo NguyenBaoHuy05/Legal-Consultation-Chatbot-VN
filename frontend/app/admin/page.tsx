@@ -227,7 +227,7 @@ export default function AdminDashboard() {
           localStorage.removeItem("token");
           router.push("/login");
         }}
-        className="float-right px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        className="float-right ml-5 px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
       >
         Logout
       </button>

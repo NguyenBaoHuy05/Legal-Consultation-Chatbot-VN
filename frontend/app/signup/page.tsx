@@ -23,9 +23,11 @@ export default function Signup() {
         full_name: fullName,
         email
       });
+      // Show success message
+      alert('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
       router.push('/login');
-    } catch (err) {
-      setError('Đăng ký thất bại. Username có thể đã tồn tại.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Đăng ký thất bại. Username có thể đã tồn tại.');
     }
   };
 

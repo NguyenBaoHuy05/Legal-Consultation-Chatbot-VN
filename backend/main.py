@@ -15,8 +15,10 @@ from auth import (
 )
 from models import (
     ChatRequest, ConfigRequest, ChatEntry, FileRecord,
-    Token, UserCreate, User, UserInDB
+    Token, UserCreate, User, UserInDB, Message, Conversation
 )
+from email_utils import send_verification_email, send_password_reset_email
+import secrets
 from jose import JWTError, jwt
 
 load_dotenv()
@@ -100,6 +102,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email not verified. Please check your email.",
+        )
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
@@ -113,18 +122,80 @@ async def register_user(user: UserCreate):
         raise HTTPException(status_code=400, detail="Username already registered")
     
     hashed_password = get_password_hash(user.password)
+    
+    verification_token = secrets.token_urlsafe(32)
+    
     user_in_db = UserInDB(
         **user.dict(),
         hashed_password=hashed_password,
-        role="user" # Default role
+        role="user", # Default role
+        is_verified=False,
+        verification_token=verification_token
     )
     
     # First user is admin (optional logic, or manually set in DB)
     if await db.users.count_documents({}) == 0:
         user_in_db.role = "admin"
+        user_in_db.is_verified = True # Auto verify first admin for convenience
 
     await db.users.insert_one(user_in_db.dict())
+    
+    if not user_in_db.is_verified and user.email:
+        # Send verification email
+        send_verification_email(user.email, verification_token)
+        
     return user_in_db
+
+@app.get("/verify-email")
+async def verify_email(token: str):
+    user = await db.users.find_one({"verification_token": token})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"is_verified": True, "verification_token": None}}
+    )
+    return {"message": "Email verified successfully"}
+
+@app.post("/forgot-password")
+async def forgot_password(email: str = Body(..., embed=True)):
+    user = await db.users.find_one({"email": email})
+    if not user:
+        # Don't reveal if user exists
+        return {"message": "If email exists, reset link sent"}
+    
+    reset_token = secrets.token_urlsafe(32)
+    expiry = datetime.utcnow() + timedelta(hours=1)
+    
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"reset_token": reset_token, "reset_token_expiry": expiry}}
+    )
+    
+    send_password_reset_email(email, reset_token)
+    return {"message": "If email exists, reset link sent"}
+
+@app.post("/reset-password")
+async def reset_password(token: str = Body(...), new_password: str = Body(...)):
+    user = await db.users.find_one({"reset_token": token})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid token")
+        
+    if user.get("reset_token_expiry") and user["reset_token_expiry"] < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Token expired")
+    
+    hashed_password = get_password_hash(new_password)
+    
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "hashed_password": hashed_password,
+            "reset_token": None,
+            "reset_token_expiry": None
+        }}
+    )
+    return {"message": "Password reset successfully"}
 
 @app.get("/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):

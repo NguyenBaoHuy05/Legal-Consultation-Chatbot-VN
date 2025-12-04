@@ -68,6 +68,9 @@ export default function Login() {
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
+          Quên mật khẩu? <a href="/forgot-password" className="text-blue-500 hover:underline">Gửi email để reset mật khẩu</a>
+        </p>
+        <p className="mt-4 text-center text-sm text-gray-600">
           Chưa có tài khoản? <a href="/signup" className="text-blue-500 hover:underline">Đăng ký</a>
         </p>
       </div>

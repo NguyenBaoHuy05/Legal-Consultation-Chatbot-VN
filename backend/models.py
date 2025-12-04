@@ -9,6 +9,10 @@ class User(BaseModel):
     role: str = "user"  # "admin" or "user"
     gemini_api_key: Optional[str] = None
     disabled: Optional[bool] = False
+    is_verified: bool = False
+    verification_token: Optional[str] = None
+    reset_token: Optional[str] = None
+    reset_token_expiry: Optional[datetime] = None
 
 class UserInDB(User):
     hashed_password: str
