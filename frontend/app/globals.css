@@ -5,19 +5,49 @@
 @tailwind utilities;
 
 :root {
-  --primary: #6366f1;
-  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --primary: #3b82f6;
+  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   --secondary: #64748b;
-  --background: #f8fafc;
+  --background: #f0f9ff;
   --surface: #ffffff;
-  --sidebar-bg: #1e293b;
+  --sidebar-bg: #0f172a;
   --sidebar-text: #e2e8f0;
   --user-text: #ffffff;
   --bot-text: #1e293b;
-  --border: #e2e8f0;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --radius: 12px;
+  --border: #bfdbfe;
+  --shadow-sm: 0 1px 2px 0 rgb(59 130 246 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(59 130 246 / 0.1), 0 2px 4px -2px rgb(59 130 246 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(59 130 246 / 0.1), 0 4px 6px -2px rgb(59 130 246 / 0.05);
+  --radius: 16px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-lg);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 body {
