@@ -50,6 +50,13 @@ async def startup_db_client():
     except Exception as e:
         print(f"Failed to connect to MongoDB: {e}")
 
+    # Check Email Config on Startup
+    email_from = os.getenv("EMAIL_FROM")
+    if email_from:
+        print(f"Email configuration detected. Sending from: {email_from}")
+    else:
+        print("WARNING: EMAIL_FROM is not set. Email sending will fail.")
+
 # Initialize RAG System (System-wide Pinecone)
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "legal-chatbot")
@@ -142,7 +149,13 @@ async def register_user(user: UserCreate):
     
     if not user_in_db.is_verified and user.email:
         # Send verification email
-        send_verification_email(user.email, verification_token)
+        try:
+            send_verification_email(user.email, verification_token)
+        except Exception as e:
+            # Rollback: Delete the user if email sending fails
+            # Delete by username since it is unique and we have it readily available
+            await db.users.delete_one({"username": user.username})
+            raise HTTPException(status_code=400, detail=f"Failed to send verification email: {str(e)}")
         
     return user_in_db
 

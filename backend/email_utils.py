@@ -1,62 +1,59 @@
 import os
-import resend
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 load_dotenv()
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-if RESEND_API_KEY:
-    resend.api_key = RESEND_API_KEY
+# Gmail Configuration
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 465
 
-FROM_EMAIL = "onboarding@resend.dev" # Change this to your verified domain in production
+def send_email(to_email: str, subject: str, html_content: str):
+    if not EMAIL_FROM or not EMAIL_PASSWORD:
+        print("EMAIL_FROM or EMAIL_PASSWORD not set. Skipping email sending.")
+        raise Exception("EMAIL_FROM or EMAIL_PASSWORD is not set in environment variables.")
+
+    msg = MIMEMultipart()
+    msg["From"] = EMAIL_FROM
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html_content, "html"))
+
+    try:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(EMAIL_FROM, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_FROM, to_email, msg.as_string())
+        print(f"Email sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        raise Exception(f"Failed to send email: {str(e)}")
 
 def send_verification_email(to_email: str, token: str):
-    if not RESEND_API_KEY:
-        print("RESEND_API_KEY not set. Skipping email sending.")
-        return False
-    
     verify_link = f"http://localhost:3000/verify-email?token={token}"
     
-    try:
-        r = resend.Emails.send({
-            "from": FROM_EMAIL,
-            "to": to_email,
-            "subject": "Xác thực tài khoản - Trợ Lý Pháp Luật",
-            "html": f"""
-            <h1>Chào mừng bạn đến với Trợ Lý Pháp Luật</h1>
-            <p>Vui lòng click vào link bên dưới để xác thực tài khoản của bạn:</p>
-            <a href="{verify_link}">{verify_link}</a>
-            <p>Link này sẽ hết hạn sau 24 giờ.</p>
-            """
-        })
-        print(f"Verification email sent to {to_email}: {r}")
-        return True
-    except Exception as e:
-        print(f"Failed to send verification email: {e}")
-        return False
+    html_content = f"""
+    <h1>Chào mừng bạn đến với Trợ Lý Pháp Luật</h1>
+    <p>Vui lòng click vào link bên dưới để xác thực tài khoản của bạn:</p>
+    <a href="{verify_link}">{verify_link}</a>
+    <p>Link này sẽ hết hạn sau 24 giờ.</p>
+    """
+    
+    return send_email(to_email, "Xác thực tài khoản - Trợ Lý Pháp Luật", html_content)
 
 def send_password_reset_email(to_email: str, token: str):
-    if not RESEND_API_KEY:
-        print("RESEND_API_KEY not set. Skipping email sending.")
-        return False
-    
     reset_link = f"http://localhost:3000/reset-password?token={token}"
     
-    try:
-        r = resend.Emails.send({
-            "from": FROM_EMAIL,
-            "to": to_email,
-            "subject": "Đặt lại mật khẩu - Trợ Lý Pháp Luật",
-            "html": f"""
-            <h1>Yêu cầu đặt lại mật khẩu</h1>
-            <p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào link bên dưới:</p>
-            <a href="{reset_link}">{reset_link}</a>
-            <p>Link này sẽ hết hạn sau 1 giờ.</p>
-            <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
-            """
-        })
-        print(f"Password reset email sent to {to_email}: {r}")
-        return True
-    except Exception as e:
-        print(f"Failed to send password reset email: {e}")
-        return False
+    html_content = f"""
+    <h1>Yêu cầu đặt lại mật khẩu</h1>
+    <p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào link bên dưới:</p>
+    <a href="{reset_link}">{reset_link}</a>
+    <p>Link này sẽ hết hạn sau 1 giờ.</p>
+    <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+    """
+    
+    return send_email(to_email, "Đặt lại mật khẩu - Trợ Lý Pháp Luật", html_content)
