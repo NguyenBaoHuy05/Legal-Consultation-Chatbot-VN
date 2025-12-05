@@ -27,7 +27,11 @@ class GeminiBot:
             
             Trả lời:"""
         else:
-            context_text = "\n\n".join([doc.text for doc in context_chunks])
+            # Ghi log cấu trúc của context_chunks
+            print("Context chunks structure:", [vars(doc) for doc in context_chunks])
+
+            # Sử dụng thuộc tính page_content thay vì text
+            context_text = "\n\n".join([doc.page_content for doc in context_chunks if hasattr(doc, 'page_content')])
             system_prompt = f"""Bạn là một trợ lý tư vấn pháp luật thông minh và chuyên nghiệp.
             Hãy dựa vào câu hỏi người dùng và các thông tin ngữ cảnh được cung cấp để đưa ra câu trả lời chính xác và hữu ích nhất.
             Câu trả lời bạn đưa ra phải chuyên nghiệp, không được máy móc, cảm xúc và thân thiện với người dùng, theo phong cách của một luật sư tư vấn pháp luật chuyên nghiệp tại Việt Nam.
