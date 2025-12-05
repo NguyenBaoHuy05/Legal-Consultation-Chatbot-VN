@@ -16,6 +16,7 @@ class User(BaseModel):
     verification_token: Optional[str] = None
     reset_token: Optional[str] = None
     reset_token_expiry: Optional[datetime] = None
+    upgrade_requested: bool = False
 
 class UserInDB(User):
     hashed_password: str
@@ -46,7 +47,7 @@ class TokenData(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str
-    isConstract: bool = False
+    isContract: bool = False
 
 class ConfigRequest(BaseModel):
     pinecone_api_key: str

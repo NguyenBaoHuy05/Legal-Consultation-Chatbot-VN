@@ -20,6 +20,12 @@ from models import (
 from email_utils import send_verification_email, send_password_reset_email
 import secrets
 from jose import JWTError, jwt
+from security import encrypt_key, decrypt_key
+import requests
+import tempfile
+import re
+import json
+from docxtpl import DocxTemplate
 
 load_dotenv()
 
@@ -256,9 +262,25 @@ async def update_gemini_key(key: str = Body(..., embed=True), current_user: User
 
 @app.post("/users/me/upgrade")
 async def upgrade_subscription(current_user: UserInDB = Depends(get_current_active_user)):
-    # In a real app, this would integrate with a payment gateway
-    await db.users.update_one({"username": current_user.username}, {"$set": {"subscription_type": "premium"}})
-    return {"status": "success", "message": "Upgraded to Premium"}
+    # Request upgrade instead of immediate grant
+    await db.users.update_one({"username": current_user.username}, {"$set": {"upgrade_requested": True}})
+    return {"status": "success", "message": "Yêu cầu nâng cấp đã được gửi. Vui lòng chờ Admin duyệt."}
+
+@app.put("/admin/users/{username}/subscription")
+async def update_user_subscription(username: str, subscription_type: str = Body(..., embed=True), current_user: User = Depends(get_current_admin_user)):
+    if subscription_type not in ["free", "premium"]:
+        raise HTTPException(status_code=400, detail="Invalid subscription type")
+        
+    update_data = {"subscription_type": subscription_type}
+    if subscription_type == "premium":
+        update_data["upgrade_requested"] = False # Clear request if approved
+        
+    result = await users_collection.update_one({"username": username}, {"$set": update_data})
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return {"status": "success", "message": f"User {username} subscription set to {subscription_type}"}
 
 @app.post("/chat")
 async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_current_active_user)):
@@ -316,19 +338,19 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
 
     # Retrieve context
     context_chunks = rag_system.retrieve(request.message)
-    print("Is Contract Mode:", request.isConstract)
+    print("Is Contract Mode:", request.isContract)
 
-    if request.isConstract:
+    if request.isContract:
         try:
             # Process contract mode
             meta = context_chunks[0].metadata
             url = meta["source"]
             variables = download_template(url)
 
-            bot = GeminiBot(gemini_key)
+            bot = GeminiBot(final_gemini_key)
             # print("Extracted Variables:", variables)
 
-            response = bot.generate_response(request.message, variables, request.isConstract)
+            response = bot.generate_response(request.message, variables, request.isContract)
 
             # Parse response as JSON
             try:
@@ -352,7 +374,7 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
     # Generate response for normal chat mode
     try:
         bot = GeminiBot(final_gemini_key)
-        response_text = bot.generate_response(request.message, context_chunks, request.isConstract)
+        response_text = bot.generate_response(request.message, context_chunks, request.isContract)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
 

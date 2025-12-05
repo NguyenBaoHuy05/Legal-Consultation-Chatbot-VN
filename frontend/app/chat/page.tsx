@@ -132,14 +132,10 @@ export default function Home() {
         }
       );
       setShowSettings(false);
-<<<<<<< Updated upstream
-      alert("Đã lưu API Key!");
-=======
       alert('Đã lưu API Key! Key của bạn đã được mã hóa an toàn.');
       // Reload user to update state if needed
       const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
       setUser(res.data);
->>>>>>> Stashed changes
     } catch (error) {
       alert("Lỗi lưu key!");
     }
@@ -147,12 +143,12 @@ export default function Home() {
 
   const handleUpgrade = async () => {
     const token = localStorage.getItem('token');
-    if (confirm('Bạn có chắc chắn muốn nâng cấp lên Premium không? (Mô phỏng)')) {
+    if (confirm('Bạn có muốn gửi yêu cầu nâng cấp lên Premium không?')) {
         try {
             await axios.post(`${API_URL}/users/me/upgrade`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            alert('Nâng cấp thành công!');
+            alert('Đã gửi yêu cầu! Vui lòng chờ Admin duyệt.');
             const res = await axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
             setUser(res.data);
         } catch (error) {
@@ -178,7 +174,7 @@ export default function Home() {
         {
           message: userMsg,
           session_id: sessionId,
-          isConstract: isContractMode,
+          isContract: isContractMode,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -198,21 +194,12 @@ export default function Home() {
       loadHistory(token!);
     } catch (error: any) {
       console.error(error);
-<<<<<<< Updated upstream
-      const errorMsg =
-        error.response?.data?.detail || "Xin lỗi, đã có lỗi xảy ra.";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `Lỗi: ${errorMsg}` },
-      ]);
-=======
       const errorMsg = error.response?.data?.detail || 'Xin lỗi, đã có lỗi xảy ra.';
       setMessages(prev => [...prev, { role: 'assistant', content: `Lỗi: ${errorMsg}` }]);
       
       if (error.response?.status === 402) {
           setShowSettings(true); // Open settings to prompt upgrade or key
       }
->>>>>>> Stashed changes
     } finally {
       setIsLoading(false);
     }
@@ -232,84 +219,6 @@ export default function Home() {
 
   return (
     <div className="container">
-<<<<<<< Updated upstream
-      <div className="sidebar">
-        <h2>⚖️ Trợ Lý Pháp Luật</h2>
-
-        <button
-          onClick={startContract}
-          className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800"
-        >
-          Tạo hợp đồng
-        </button>
-        <button
-          onClick={startNewChat}
-          className="btn bg-blue-600 hover:bg-blue-700 w-full"
-        >
-          + Cuộc trò chuyện mới
-        </button>
-
-        <div className="history-list flex-1 overflow-y-auto mb-4">
-          <h3 className="text-sm font-semibold text-gray-400 mb-2 uppercase">
-            Lịch sử
-          </h3>
-          {history.map((item) => (
-            <div
-              key={item.session_id}
-              onClick={() => loadSession(item.session_id)}
-              className={`p-2 mb-1 rounded cursor-pointer text-sm truncate hover:bg-gray-700 ${
-                sessionId === item.session_id ? "bg-gray-700" : ""
-              }`}
-            >
-              {item.title}
-            </div>
-          ))}
-        </div>
-
-        <button className="btn" onClick={() => setShowSettings(!showSettings)}>
-          Gemini Key
-        </button>
-
-        {showSettings && (
-          <div className="config-section mt-2.5">
-            <label className="text-sm">Gemini API Key</label>
-            <input
-              type="password"
-              value={geminiKey}
-              onChange={(e) => setGeminiKey(e.target.value)}
-              className="w-full p-1.5 my-1.5 border rounded text-black"
-            />
-            <button
-              className="btn bg-green-500 hover:bg-green-600"
-              onClick={saveGeminiKey}
-            >
-              Lưu
-            </button>
-          </div>
-        )}
-        <div className="user-profile mt-auto pt-4 border-t border-gray-700">
-          <p className="text-sm mb-2">
-            Xin chào, <strong>{user.full_name || user.username}</strong>
-          </p>
-          <button onClick={handleLogout} className="logout-btn text-xs">
-            Đăng xuất
-          </button>
-        </div>
-        {user.role === "admin" && (
-          <button
-            className="btn mt-2.5 bg-blue-500 hover:bg-blue-600"
-            onClick={() => router.push("/admin")}
-          >
-            Đến Admin Dashboard
-          </button>
-        )}
-
-        {/* <div className="config-section mt-auto">
-          <p className="text-xs text-gray-400">
-            Hệ thống sử dụng Pinecone Database chung. Bạn chỉ cần cung cấp Gemini Key để chat.
-          </p>
-        </div> */}
-=======
       <div className="sidebar relative">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2">
@@ -326,7 +235,12 @@ export default function Home() {
             </svg>
           </button>
         </div>
-
+        <button
+          onClick={startContract}
+          className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800"
+        >
+          Tạo hợp đồng
+        </button>
         {showSettings && (
           <div className="absolute top-16 left-4 right-4 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl z-20 animate-in fade-in zoom-in duration-200">
             <h3 className="text-sm font-semibold text-white mb-3">Cài đặt tài khoản</h3>
@@ -340,9 +254,14 @@ export default function Home() {
                     {user.subscription_type !== 'premium' && (
                         <button 
                             onClick={handleUpgrade}
-                            className="text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded transition-colors"
+                            disabled={user.upgrade_requested}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                                user.upgrade_requested 
+                                ? 'bg-slate-600 text-slate-400 cursor-not-allowed' 
+                                : 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                            }`}
                         >
-                            Nâng cấp
+                            {user.upgrade_requested ? 'Đang chờ duyệt' : 'Yêu cầu nâng cấp'}
                         </button>
                     )}
                 </div>
@@ -358,7 +277,11 @@ export default function Home() {
                                 style={{ width: `${Math.min(((user.daily_usage_count || 0) / 5) * 100, 100)}%` }}
                             ></div>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Nâng cấp để không giới hạn.</p>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                            {user.upgrade_requested 
+                                ? 'Yêu cầu của bạn đang được Admin xem xét.' 
+                                : 'Nâng cấp để không giới hạn.'}
+                        </p>
                     </div>
                 )}
             </div>
@@ -436,7 +359,6 @@ export default function Home() {
             Dashboard Admin
           </button>
         )}
->>>>>>> Stashed changes
       </div>
 
       <div className="main-content">
