@@ -43,6 +43,7 @@ class TokenData(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str
+    isConstract: bool = False
 
 class ConfigRequest(BaseModel):
     pinecone_api_key: str

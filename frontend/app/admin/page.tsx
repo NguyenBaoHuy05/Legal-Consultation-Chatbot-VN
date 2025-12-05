@@ -19,12 +19,12 @@ const API_URL = process.env.API_URL || "http://localhost:8000";
 export default function AdminDashboard() {
   const [pineconeKey, setPineconeKey] = useState("");
   const [pineconeIndex, setPineconeIndex] = useState("legal-chatbot");
-  const [files, setFiles] = useState<File[] | null>(null);
   const [status, setStatus] = useState("");
   const router = useRouter();
 
   const [users, setUsers] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [constractFiles, setConstractFiles] = useState<File[]>([]);
   const [dbFiles, setDbFiles] = useState<FileRecord[]>([]);
 
   useEffect(() => {
@@ -66,6 +66,7 @@ export default function AdminDashboard() {
         const response = await axios.get(`${API_URL}/admin/list-file`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        console.log("Files from DB:", response.data);
         setDbFiles(response.data);
       } catch (error) {
         console.error("Failed to fetch files from database.", error);
@@ -148,8 +149,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConstractSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setConstractFiles(Array.from(e.target.files));
+    }
+  };
+
   const handleDeleteFile = (index: number) => {
     setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  };
+
+  const handleDeleteConstractFile = (index: number) => {
+    setConstractFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
   };
 
   const handleSendToPinecone = async () => {
@@ -218,6 +229,45 @@ export default function AdminDashboard() {
     // }
   };
 
+  const handleSendToSupabase = async () => {
+    if (constractFiles.length === 0) {
+      toast.error("Không có file nào để gửi đến Supabase.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const formData = new FormData();
+    for (let file of constractFiles) {
+      formData.append("files", file);
+    }
+    setStatus("Đang gửi file đến Supabase...");
+    // console.log("Uploading files:", formData.getAll("files"));
+    // return
+    try {
+      await axios.post(`${API_URL}/admin/upload-supabase`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setStatus("Gửi file đến Pinecone thành công!");
+      setUploadedFiles([]); // Clear uploaded files after sending
+      setDbFiles((prevDbFiles) => [
+        ...prevDbFiles,
+        ...uploadedFiles.map((file) => ({
+          filename: file.name,
+          size: file.size,
+          upload_date: new Date().toISOString(),
+          uploaded_by: "admin",
+          status: "processed",
+        })),
+      ]);
+      toast.success("Files sent to Pinecone successfully.");
+    } catch (error) {
+      setStatus("Lỗi khi gửi file đến Pinecone!");
+    }
+  };
+
   return (
     <div className="p-8 min-h-screen  overflow-y-auto">
       <ToastContainer />
@@ -265,16 +315,14 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        <div
-          className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto"
-        >
+        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
           <h2>Quản Lý Tài Liệu</h2>
           <input
             type="file"
             multiple
             accept=".pdf,.txt"
             onChange={handleFileSelection}
-            className="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           <br />
           <button
@@ -296,6 +344,45 @@ export default function AdminDashboard() {
                     <li key={index}>{file.name}</li>
                     <div
                       onClick={() => handleDeleteFile(index)}
+                      className="bg-red-700 px-2.5 py-1.5 rounded text-white cursor-pointer ml-2.5 hover:bg-red-800 transition-colors text-sm"
+                    >
+                      Xóa
+                    </div>
+                  </div>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
+          <h2>Úp hợp đồng</h2>
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.txt,.docx"
+            onChange={handleConstractSelection}
+            className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+          <br />
+          <button
+            onClick={handleSendToSupabase}
+            className="px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Send Supabase
+          </button>
+
+          {constractFiles.length > 0 && (
+            <div className="mt-4">
+              <h3>Danh sách file đã tải lên:</h3>
+              <ul>
+                {constractFiles.map((file, index) => (
+                  <div
+                    className="flex flex-row items-center mb-1.5 justify-between bg-gray-50 p-2 rounded"
+                    key={index}
+                  >
+                    <li key={index}>{file.name}</li>
+                    <div
+                      onClick={() => handleDeleteConstractFile(index)}
                       className="bg-red-700 px-2.5 py-1.5 rounded text-white cursor-pointer ml-2.5 hover:bg-red-800 transition-colors text-sm"
                     >
                       Xóa

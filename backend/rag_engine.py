@@ -103,7 +103,7 @@ class RAGSystem:
             print(f"Error creating vector database: {e}")
             return None
 
-    def retrieve(self, query, k=5):
+    def retrieve(self, query, k=20):
         """
         Retrieve the top k most relevant document chunks for a query.
         """

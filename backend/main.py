@@ -20,6 +20,12 @@ from models import (
 from email_utils import send_verification_email, send_password_reset_email
 import secrets
 from jose import JWTError, jwt
+from supabase import create_client
+import requests
+from docxtpl import DocxTemplate
+import re
+import tempfile
+import json
 
 load_dotenv()
 
@@ -36,12 +42,46 @@ app.add_middleware(
 
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.legal_chatbot
 chat_collection = db.chats
 conversations_collection = db.conversations
 users_collection = db.users
 
+def download_template(url, path="template.docx"):
+    url = url.replace("+", ":").replace("_", "/").replace(".pdf", ".docx")
+    r = requests.get(url)
+    r.raise_for_status()
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+    tmp.write(r.content)
+    tmp.close()
+    doc = DocxTemplate(tmp.name)
+    doc.save("output_template.docx")
+    txt = "\n".join([p.text for p in doc.docx.paragraphs if p.text])
+
+    vars = set(re.findall(r"{{(.*?)}}", txt))
+
+    return list(vars)
+def fill_contract(template_path, data, output_path="contract_filled.docx"):
+    """
+    Điền dữ liệu vào template và lưu file kết quả.
+
+    Args:
+        template_path (str): Đường dẫn đến file template.
+        data (dict): Dữ liệu để điền vào các trường.
+        output_path (str): Đường dẫn lưu file kết quả (mặc định là 'contract_filled.docx').
+
+    Returns:
+        str: Đường dẫn của file kết quả.
+    """
+    doc = DocxTemplate(template_path)
+    doc.render(data)  # Điền dữ liệu vào template
+    doc.save(output_path)
+    return output_path
 @app.on_event("startup")
 async def startup_db_client():
     try:
@@ -222,39 +262,70 @@ async def update_gemini_key(key: str = Body(..., embed=True), current_user: User
 @app.post("/chat")
 async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_current_active_user)):
     global rag_system
-    
+
     # Use user's Gemini Key if available, else system's (if you want to allow that)
-    # Prompt says: "User just adds gemini key".
     gemini_key = current_user.gemini_api_key
     if not gemini_key:
-         raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings.")
+        raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings.")
 
     if not rag_system:
         raise HTTPException(status_code=503, detail="System RAG (Pinecone) not configured by Admin.")
 
     # Retrieve context
     context_chunks = rag_system.retrieve(request.message)
-    
-    # Generate response
+    print("Is Contract Mode:", request.isConstract)
+
+    if request.isConstract:
+        try:
+            # Process contract mode
+            meta = context_chunks[0].metadata
+            url = meta["source"]
+            variables = download_template(url)
+
+            bot = GeminiBot(gemini_key)
+            # print("Extracted Variables:", variables)
+
+            response = bot.generate_response(request.message, variables, request.isConstract)
+
+            # Parse response as JSON
+            try:
+                response_json = json.loads(response)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=500, detail=f"Failed to parse response as JSON: {str(e)}")
+
+            # Generate contract document
+            print("Contract Data:", response_json)
+            output_path = fill_contract("output_template.docx", response_json)
+
+            # Return the generated document to the user
+            return {
+                "message": "Contract generated successfully.",
+                "contract_path": output_path
+            }
+        except Exception as e:
+            print(f"Error during contract generation: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error generating contract: {str(e)}")
+
+    # Generate response for normal chat mode
     try:
         bot = GeminiBot(gemini_key)
-        response_text = bot.generate_response(request.message, context_chunks)
+        response_text = bot.generate_response(request.message, context_chunks, request.isConstract)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
-    
+
     # Create Messages
     user_msg = {
         "role": "user",
         "content": request.message,
         "timestamp": datetime.utcnow()
     }
-    
+
     formatted_sources = []
     for doc in context_chunks:
         formatted_sources.append({
             "content": doc.page_content,
             "source": doc.metadata.get("source", "Unknown"),
-            "page": doc.metadata.get("page", 0) + 1 # Convert 0-index to 1-index for display
+            "page": doc.metadata.get("page", 0) + 1  # Convert 0-index to 1-index for display
         })
 
     bot_msg = {
@@ -265,9 +336,8 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
     }
 
     # Update Conversation in MongoDB
-    # Try to find existing conversation
     existing_conv = await conversations_collection.find_one({"session_id": request.session_id, "user_id": current_user.username})
-    
+
     if existing_conv:
         await conversations_collection.update_one(
             {"session_id": request.session_id},
@@ -277,8 +347,6 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
             }
         )
     else:
-        # Create new conversation
-        # Generate title from first message (first 50 chars)
         title = request.message[:50] + "..." if len(request.message) > 50 else request.message
         new_conv = {
             "session_id": request.session_id,
@@ -289,7 +357,7 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
             "updated_at": datetime.utcnow()
         }
         await conversations_collection.insert_one(new_conv)
-    
+
     return {
         "response": response_text,
         "sources": formatted_sources
@@ -347,6 +415,19 @@ async def upload_files(files: List[UploadFile] = File(...), current_user: User =
         for f in saved_files:
             if os.path.exists(f.path):
                 os.remove(f.path)
+
+@app.post("/admin/upload-supabase")
+async def upload_files_supabase(files: List[UploadFile] = File(...), current_user: User = Depends(get_current_admin_user)):
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    
+    for file in files:
+        file_location = f"temp_{file.filename}"
+        with open(file_location, "wb") as f:
+            f.write(await file.read())
+        res = supabase.storage.from_(SUPABASE_BUCKET).upload(
+            file.filename,
+            file_location
+        )
 
 @app.post("/admin/config")
 async def admin_config(config: ConfigRequest, current_user: User = Depends(get_current_admin_user)):
@@ -413,7 +494,7 @@ async def delete_all_data(current_user: User = Depends(get_current_admin_user)):
 @app.get("/admin/list-file", response_model=List[FileRecord], response_model_by_alias=True)
 async def listFile(current_user: User = Depends(get_current_admin_user)):
     files_cursor = db.files.find({})
-    files = await files_cursor.to_list(length=100)
+    files = await files_cursor.to_list(length=205)
     for file in files:
         if "_id" in file:
             file["_id"] = str(file["_id"])
