@@ -20,12 +20,12 @@ from models import (
 from email_utils import send_verification_email, send_password_reset_email
 import secrets
 from jose import JWTError, jwt
-from supabase import create_client
+from security import encrypt_key, decrypt_key
 import requests
-from docxtpl import DocxTemplate
-import re
 import tempfile
+import re
 import json
+from docxtpl import DocxTemplate
 
 load_dotenv()
 
@@ -256,36 +256,101 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 
 @app.put("/users/me/gemini")
 async def update_gemini_key(key: str = Body(..., embed=True), current_user: UserInDB = Depends(get_current_active_user)):
-    await db.users.update_one({"username": current_user.username}, {"$set": {"gemini_api_key": key}})
+    encrypted_key = encrypt_key(key)
+    await db.users.update_one({"username": current_user.username}, {"$set": {"gemini_api_key": encrypted_key}})
     return {"status": "success"}
+
+@app.post("/users/me/upgrade")
+async def upgrade_subscription(current_user: UserInDB = Depends(get_current_active_user)):
+    # Request upgrade instead of immediate grant
+    await db.users.update_one({"username": current_user.username}, {"$set": {"upgrade_requested": True}})
+    return {"status": "success", "message": "Yêu cầu nâng cấp đã được gửi. Vui lòng chờ Admin duyệt."}
+
+@app.put("/admin/users/{username}/subscription")
+async def update_user_subscription(username: str, subscription_type: str = Body(..., embed=True), current_user: User = Depends(get_current_admin_user)):
+    if subscription_type not in ["free", "premium"]:
+        raise HTTPException(status_code=400, detail="Invalid subscription type")
+        
+    update_data = {"subscription_type": subscription_type}
+    if subscription_type == "premium":
+        update_data["upgrade_requested"] = False # Clear request if approved
+        
+    result = await users_collection.update_one({"username": username}, {"$set": update_data})
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return {"status": "success", "message": f"User {username} subscription set to {subscription_type}"}
 
 @app.post("/chat")
 async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_current_active_user)):
     global rag_system
 
     # Use user's Gemini Key if available, else system's (if you want to allow that)
-    gemini_key = current_user.gemini_api_key
-    if not gemini_key:
-        raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings.")
+    # Prompt says: "User just adds gemini key".
+    user_gemini_key = current_user.gemini_api_key
+    
+    final_gemini_key = None
+    
+    if user_gemini_key:
+        final_gemini_key = decrypt_key(user_gemini_key)
+    
+    if not final_gemini_key:
+        # Check subscription and limits
+        if current_user.subscription_type == "premium":
+             # Use system key (from env or config)
+             # For now, assuming system key is set in env GOOGLE_API_KEY or similar, 
+             # BUT chatbot.py uses the key passed to it. 
+             # We need a system-wide key. Let's assume one is in env.
+             final_gemini_key = os.getenv("GOOGLE_API_KEY")
+             if not final_gemini_key:
+                 raise HTTPException(status_code=503, detail="System Gemini Key not configured.")
+        else:
+            # Free user - Check limits
+            today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            last_usage = current_user.last_usage_date
+            
+            if last_usage and last_usage >= today:
+                if current_user.daily_usage_count >= 5:
+                    raise HTTPException(status_code=402, detail="Daily limit reached. Please upgrade or add your own API Key.")
+                
+                # Increment
+                await db.users.update_one(
+                    {"username": current_user.username},
+                    {"$inc": {"daily_usage_count": 1}, "$set": {"last_usage_date": datetime.utcnow()}}
+                )
+            else:
+                # Reset and increment
+                await db.users.update_one(
+                    {"username": current_user.username},
+                    {"$set": {"daily_usage_count": 1, "last_usage_date": datetime.utcnow()}}
+                )
+            
+            final_gemini_key = os.getenv("GOOGLE_API_KEY")
+            if not final_gemini_key:
+                 raise HTTPException(status_code=503, detail="System Gemini Key not configured.")
+
+    if not final_gemini_key:
+         raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings or upgrade to Premium.")
 
     if not rag_system:
         raise HTTPException(status_code=503, detail="System RAG (Pinecone) not configured by Admin.")
 
     # Retrieve context
     context_chunks = rag_system.retrieve(request.message)
-    print("Is Contract Mode:", request.isConstract)
+    print("Is Contract Mode:", request.isContract)
 
-    if request.isConstract:
+    if request.isContract:
         try:
             # Process contract mode
             meta = context_chunks[0].metadata
             url = meta["source"]
             variables = download_template(url)
 
-            bot = GeminiBot(gemini_key)
+            bot = GeminiBot(final_gemini_key)
             # print("Extracted Variables:", variables)
 
-            response = bot.generate_response(request.message, variables, request.isConstract)
+            response = bot.generate_response(request.message, variables, request.isContract)
 
             # Parse response as JSON
             try:
@@ -308,8 +373,8 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
 
     # Generate response for normal chat mode
     try:
-        bot = GeminiBot(gemini_key)
-        response_text = bot.generate_response(request.message, context_chunks, request.isConstract)
+        bot = GeminiBot(final_gemini_key)
+        response_text = bot.generate_response(request.message, context_chunks, request.isContract)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
 

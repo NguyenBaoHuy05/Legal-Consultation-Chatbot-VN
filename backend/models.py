@@ -8,11 +8,15 @@ class User(BaseModel):
     full_name: Optional[str] = None
     role: str = "user"  # "admin" or "user"
     gemini_api_key: Optional[str] = None
+    subscription_type: str = "free" # "free" or "premium"
+    daily_usage_count: int = 0
+    last_usage_date: Optional[datetime] = None
     disabled: Optional[bool] = False
     is_verified: bool = False
     verification_token: Optional[str] = None
     reset_token: Optional[str] = None
     reset_token_expiry: Optional[datetime] = None
+    upgrade_requested: bool = False
 
 class UserInDB(User):
     hashed_password: str
@@ -43,7 +47,7 @@ class TokenData(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str
-    isConstract: bool = False
+    isContract: bool = False
 
 class ConfigRequest(BaseModel):
     pinecone_api_key: str

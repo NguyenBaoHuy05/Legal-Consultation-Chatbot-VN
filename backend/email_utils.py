@@ -39,7 +39,7 @@ def send_verification_email(to_email: str, token: str):
     html_content = f"""
     <h1 style="text-align: center;">Chào mừng bạn đến với Trợ Lý Pháp Luật</h1>
     <p style="text-align: center;">Vui lòng click vào link bên dưới để xác thực tài khoản của bạn:</p>
-    <a href="{verify_link}" style = "text-align: center;background-color: #4CAF50;color: white;padding: 15px 32px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;">Link</a>
+    <a href="{verify_link}" style = "flex justify-content: center; align-items: center; text-align: center;background-color: #4CAF50;color: white;padding: 15px 32px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;">Link</a>
     <p style="text-align: center;">Link này sẽ hết hạn sau 24 giờ.</p>
     """
     
@@ -51,7 +51,7 @@ def send_password_reset_email(to_email: str, token: str):
     html_content = f"""
     <h1 style="text-align: center;">Yêu cầu đặt lại mật khẩu</h1>
     <p style="text-align: center;">Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào link bên dưới:</p>
-    <a href="{reset_link}" style = "text-align: center;background-color: #4CAF50;color: white;padding: 15px 32px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;">Link</a>
+    <a href="{reset_link}" style = "flex justify-content: center; align-items: center; text-align: center;background-color: #4CAF50;color: white;padding: 15px 32px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;">Link</a>
     <p style="text-align: center;">Link này sẽ hết hạn sau 1 giờ.</p>
     <p style="text-align: center;">Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
     """
