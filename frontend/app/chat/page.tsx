@@ -34,7 +34,6 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isContractMode, setIsContractMode] = useState(false);
 
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,6 +74,7 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+
   const loadHistory = async (token: string) => {
     try {
       const res = await axios.get(`${API_URL}/history`, {
@@ -113,12 +113,6 @@ export default function Home() {
   const startNewChat = () => {
     setMessages([]);
     setSessionId(Math.random().toString(36).substring(7));
-    setIsContractMode(false);
-  };
-  const startContract = () => {
-    setMessages([]);
-    setSessionId(Math.random().toString(36).substring(7));
-    setIsContractMode(true);
   };
 
   const saveGeminiKey = async () => {
@@ -155,7 +149,6 @@ export default function Home() {
         {
           message: userMsg,
           session_id: sessionId,
-          isConstract: isContractMode,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -203,10 +196,7 @@ export default function Home() {
       <div className="sidebar">
         <h2>⚖️ Trợ Lý Pháp Luật</h2>
 
-        <button
-          onClick={startContract}
-          className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800"
-        >
+        <button onClick={() => router.push("/constract")} className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800 text-center text-white mb-4">
           Tạo hợp đồng
         </button>
         <button
@@ -254,11 +244,11 @@ export default function Home() {
             </button>
           </div>
         )}
-        <div className="user-profile mt-auto pt-4 border-t border-gray-700">
+        <div className="user-profile mt-auto pt-4 border-t border-gray-700 flex flex-col justify-center">
           <p className="text-sm mb-2">
-            Xin chào, <strong>{user.full_name || user.username}</strong>
+            Xin chào, <strong>{user.full_name + " " + user.username}</strong>
           </p>
-          <button onClick={handleLogout} className="logout-btn text-xs">
+          <button onClick={handleLogout} className="logout-btn text-xs j">
             Đăng xuất
           </button>
         </div>
@@ -284,9 +274,7 @@ export default function Home() {
             <div className="welcome-screen">
               <h1>Xin chào! 👋</h1>
               <p>
-                {isContractMode
-                  ? "Tôi là trợ lý hợp đồng AI. Hãy cung cấp thông tin để tôi giúp bạn tạo hợp đồng."
-                  : "Tôi là trợ lý pháp luật AI. Hãy hỏi tôi bất cứ điều gì về luật pháp Việt Nam."}
+                  Tôi là trợ lý pháp luật AI. Hãy hỏi tôi bất cứ điều gì về luật pháp Việt Nam.
               </p>
             </div>
           )}

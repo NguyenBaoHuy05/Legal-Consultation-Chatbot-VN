@@ -108,11 +108,12 @@ body {
 
 .logout-btn {
   font-size: 0.85rem;
-  color: #ef4444;
-  background: none;
+  color: #ff9500;
+  background-color: rgba(117, 20, 20, 0.653);
+  padding: 5px;
   border: none;
   cursor: pointer;
-  padding: 0;
+  /* padding: 0; */
   transition: color 0.2s;
   font-weight: 500;
 }

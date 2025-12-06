@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorClient
 from rag_engine import RAGSystem
@@ -14,7 +15,7 @@ from auth import (
     SECRET_KEY, ALGORITHM
 )
 from models import (
-    ChatRequest, ConfigRequest, ChatEntry, FileRecord,
+    ChatContractRequest, ChatRequest, ConfigRequest, ChatEntry, FileRecord,
     Token, UserCreate, User, UserInDB, Message, Conversation
 )
 from email_utils import send_verification_email, send_password_reset_email
@@ -40,19 +41,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
+SUPABASE_LINK_BUCKET = os.getenv("SUPABASE_LINK_BUCKET")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.legal_chatbot
 chat_collection = db.chats
 conversations_collection = db.conversations
 users_collection = db.users
 
+
+
 def download_template(url, path="template.docx"):
-    url = url.replace("+", ":").replace("_", "/").replace(".pdf", ".docx")
     r = requests.get(url)
     r.raise_for_status()
 
@@ -65,22 +70,25 @@ def download_template(url, path="template.docx"):
 
     vars = set(re.findall(r"{{(.*?)}}", txt))
 
-    return list(vars)
-def fill_contract(template_path, data, output_path="contract_filled.docx"):
+    return {var_name: "" for var_name in vars}
+def fill_contract(template_path, data, output_path="contract.docx"):
     """
-    Điền dữ liệu vào template và lưu file kết quả.
+    Điền dữ liệu vào template và lưu file kết quả (ghi đè nếu file đã tồn tại).
 
     Args:
         template_path (str): Đường dẫn đến file template.
         data (dict): Dữ liệu để điền vào các trường.
-        output_path (str): Đường dẫn lưu file kết quả (mặc định là 'contract_filled.docx').
+        output_path (str): Đường dẫn lưu file kết quả (mặc định là 'contract.docx').
 
     Returns:
         str: Đường dẫn của file kết quả.
     """
     doc = DocxTemplate(template_path)
     doc.render(data)  # Điền dữ liệu vào template
-    doc.save(output_path)
+    #nếu file đã tồn tai thì xóa đi
+    if os.path.exists(output_path):
+        os.remove(output_path)
+    doc.save(output_path)  # Ghi đè file nếu đã tồn tại
     return output_path
 @app.on_event("startup")
 async def startup_db_client():
@@ -273,43 +281,42 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
 
     # Retrieve context
     context_chunks = rag_system.retrieve(request.message)
-    print("Is Contract Mode:", request.isConstract)
 
-    if request.isConstract:
-        try:
-            # Process contract mode
-            meta = context_chunks[0].metadata
-            url = meta["source"]
-            variables = download_template(url)
+    # if request.isConstract:
+    #     try:
+    #         # Process contract mode
+    #         meta = context_chunks[0].metadata
+    #         url = meta["source"]
+    #         variables = download_template(url)
 
-            bot = GeminiBot(gemini_key)
-            # print("Extracted Variables:", variables)
+    #         bot = GeminiBot(gemini_key)
+    #         # print("Extracted Variables:", variables)
 
-            response = bot.generate_response(request.message, variables, request.isConstract)
+    #         response = bot.generate_response(request.message, variables, request.isConstract)
 
-            # Parse response as JSON
-            try:
-                response_json = json.loads(response)
-            except json.JSONDecodeError as e:
-                raise HTTPException(status_code=500, detail=f"Failed to parse response as JSON: {str(e)}")
+    #         # Parse response as JSON
+    #         try:
+    #             response_json = json.loads(response)
+    #         except json.JSONDecodeError as e:
+    #             raise HTTPException(status_code=500, detail=f"Failed to parse response as JSON: {str(e)}")
 
-            # Generate contract document
-            print("Contract Data:", response_json)
-            output_path = fill_contract("output_template.docx", response_json)
+    #         # Generate contract document
+    #         print("Contract Data:", response_json)
+    #         output_path = fill_contract("output_template.docx", response_json)
 
-            # Return the generated document to the user
-            return {
-                "message": "Contract generated successfully.",
-                "contract_path": output_path
-            }
-        except Exception as e:
-            print(f"Error during contract generation: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error generating contract: {str(e)}")
+    #         # Return the generated document to the user
+    #         return {
+    #             "message": "Contract generated successfully.",
+    #             "contract_path": output_path
+    #         }
+    #     except Exception as e:
+    #         print(f"Error during contract generation: {str(e)}")
+    #         raise HTTPException(status_code=500, detail=f"Error generating contract: {str(e)}")
 
     # Generate response for normal chat mode
     try:
         bot = GeminiBot(gemini_key)
-        response_text = bot.generate_response(request.message, context_chunks, request.isConstract)
+        response_text = bot.generate_response(request.message, context_chunks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
 
@@ -361,6 +368,53 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
     return {
         "response": response_text,
         "sources": formatted_sources
+    }
+@app.post("/download-template")
+async def download_template_endpoint(filename: str = Body(..., embed=True), current_user: UserInDB = Depends(get_current_active_user)):
+    url = f"{SUPABASE_LINK_BUCKET}{filename}"
+    print("Downloading template from URL:", url)
+    try:
+        variables = download_template(url)
+        return {"variables": variables}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading template: {str(e)}")
+
+@app.post("/chat-contract")
+async def chat_contract(request: ChatContractRequest, current_user: UserInDB = Depends(get_current_active_user)):
+    gemini_key = current_user.gemini_api_key
+    if not gemini_key:
+        raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings.")
+
+    bot = GeminiBot(gemini_key)
+    response_raw = bot.generate_response_contract(request.message, request.variables)
+    print("Raw contract response:", response_raw)
+
+    # Loại bỏ code block ```json
+    cleaned = response_raw.strip()
+
+    if cleaned.startswith("```"):
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+
+    # Parse JSON
+    try:
+        response_json = json.loads(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gemini JSON parse error: {str(e)}")
+    if response_json.get("status") == "complete":
+        # Generate contract document
+        try:
+            output_path = fill_contract("output_template.docx", response_json.get("variables", {}))
+            return {
+                "response": "Bấm để tải về",
+                "variables": response_json.get("variables", {}),
+                "link": output_path
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating contract document: {str(e)}")
+    return {
+        "response": response_json.get("response", ""),
+        "variables": response_json.get("variables", {}),
+        "link": ""
     }
 
 @app.post("/admin/upload")
@@ -500,6 +554,15 @@ async def listFile(current_user: User = Depends(get_current_admin_user)):
             file["_id"] = str(file["_id"])
     return files
 
+@app.get("/contract")
+async def get_contracts(current_user: User = Depends(get_current_active_user)):
+    contracts_cursor = db.contract.find({})
+    contracts = await contracts_cursor.to_list(length=100)
+    for contract in contracts:
+        if "_id" in contract:
+            contract["_id"] = str(contract["_id"])
+    return contracts
+
 @app.delete("/admin/delete-file/{filename}")
 async def deleteFile(filename: str, current_user: User = Depends(get_current_admin_user)):
     global rag_system
@@ -519,3 +582,10 @@ async def checkFile(filename: str, current_user: User = Depends(get_current_admi
         return {"exists": True}
     else:
         return {"exists": False}
+@app.get("/download/{filename}")
+async def download_file(filename: str, current_user: UserInDB = Depends(get_current_active_user)):
+    file_path = os.path.join("",filename)  # Đường dẫn thư mục chứa file
+    print(f"Looking for file at: {file_path}")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
