@@ -172,6 +172,7 @@ export default function Home() {
         {
           message: userMsg,
           variables: variabless,
+          messages: messages,
         },
         {
           headers: { Authorization: `Bearer ${token}` },

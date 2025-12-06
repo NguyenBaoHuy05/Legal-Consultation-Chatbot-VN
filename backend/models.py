@@ -49,10 +49,16 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str
 
+class MessageForContract(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+    link: str
+
 class ChatContractRequest(BaseModel):
     message: str
     ## dùng để lưu trữ các biến đã trích xuất từ hợp đồng
     variables: Optional[dict] = {}
+    messages: Optional[List[MessageForContract]] = []
 
 class ConfigRequest(BaseModel):
     pinecone_api_key: str

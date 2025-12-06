@@ -380,7 +380,7 @@ async def chat(request: ChatRequest, current_user: UserInDB = Depends(get_curren
 
     # Generate response for normal chat mode
     try:
-        bot = GeminiBot(gemini_key)
+        bot = GeminiBot(final_gemini_key)
         response_text = bot.generate_response(request.message, context_chunks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
@@ -451,7 +451,7 @@ async def chat_contract(request: ChatContractRequest, current_user: UserInDB = D
         raise HTTPException(status_code=400, detail="Please configure your Gemini API Key in settings.")
 
     bot = GeminiBot(gemini_key)
-    response_raw = bot.generate_response_contract(request.message, request.variables)
+    response_raw = bot.generate_response_contract(request.message, request.variables, request.messages)
     print("Raw contract response:", response_raw)
 
     # Loại bỏ code block ```json
