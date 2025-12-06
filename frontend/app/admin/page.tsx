@@ -95,6 +95,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleUpdateSubscription = async (username: string, type: string) => {
+    const token = localStorage.getItem("token");
+    try {
+        await axios.put(
+            `${API_URL}/admin/users/${username}/subscription`,
+            { subscription_type: type },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success(`Đã cập nhật gói cước cho ${username} thành ${type}`);
+        fetchUsers(token!);
+    } catch (error) {
+        toast.error("Lỗi cập nhật gói cước!");
+    }
+  };
+
   const handleConfig = async () => {
     const token = localStorage.getItem("token");
     try {
@@ -333,7 +348,7 @@ export default function AdminDashboard() {
           </button>
 
           {uploadedFiles.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 max-h-[calc(100vh-200px)] overflow-y-auto">
               <h3>Danh sách file đã tải lên:</h3>
               <ul>
                 {uploadedFiles.map((file, index) => (
@@ -372,7 +387,7 @@ export default function AdminDashboard() {
           </button>
 
           {constractFiles.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 max-h-[calc(100vh-200px)] overflow-y-auto">
               <h3>Danh sách file đã tải lên:</h3>
               <ul>
                 {constractFiles.map((file, index) => (
@@ -394,7 +409,7 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
-      <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm h-[calc(100vh-200px)">
+      <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
         <h2>Danh sách file đã upload</h2>
         <table className="w-full border-collapse">
           <thead>
@@ -408,7 +423,7 @@ export default function AdminDashboard() {
           <tbody>
             {dbFiles.map((file) => (
               <tr
-                key={file.filename}
+                key={file.filename + new Date(file.upload_date).getTime()}
                 className="border-b border-gray-200 hover:bg-gray-50"
               >
                 <td className="p-2.5">{file.filename}</td>
@@ -444,6 +459,7 @@ export default function AdminDashboard() {
               <th className="p-2.5 font-semibold text-gray-700">Full Name</th>
               <th className="p-2.5 font-semibold text-gray-700">Email</th>
               <th className="p-2.5 font-semibold text-gray-700">Role</th>
+              <th className="p-2.5 font-semibold text-gray-700">Gói</th>
               <th className="p-2.5 font-semibold text-gray-700">Status</th>
               <th className="p-2.5 font-semibold text-gray-700">Action</th>
             </tr>
@@ -469,6 +485,18 @@ export default function AdminDashboard() {
                   </span>
                 </td>
                 <td className="p-2.5">
+                    <div className="flex flex-col gap-1">
+                        <span className={`font-bold ${user.subscription_type === 'premium' ? 'text-yellow-600' : 'text-slate-600'}`}>
+                            {user.subscription_type === 'premium' ? 'Premium' : 'Free'}
+                        </span>
+                        {user.upgrade_requested && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded">
+                                Yêu cầu nâng cấp
+                            </span>
+                        )}
+                    </div>
+                </td>
+                <td className="p-2.5">
                   <span
                     className={`font-bold ${
                       user.disabled ? "text-red-500" : "text-green-500"
@@ -478,20 +506,40 @@ export default function AdminDashboard() {
                   </span>
                 </td>
                 <td className="p-2.5">
-                  {user.role !== "admin" && (
-                    <button
-                      onClick={() =>
-                        toggleUserStatus(user.username, user.disabled)
-                      }
-                      className={`px-2.5 py-1.5 text-white rounded cursor-pointer border-none ${
-                        user.disabled
-                          ? "bg-green-500 hover:bg-green-600"
-                          : "bg-red-500 hover:bg-red-600"
-                      }`}
-                    >
-                      {user.disabled ? "Enable" : "Disable"}
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                    {user.role !== "admin" && (
+                        <button
+                        onClick={() =>
+                            toggleUserStatus(user.username, user.disabled)
+                        }
+                        className={`px-2 py-1 text-white text-xs rounded cursor-pointer border-none ${
+                            user.disabled
+                            ? "bg-green-500 hover:bg-green-600"
+                            : "bg-red-500 hover:bg-red-600"
+                        }`}
+                        >
+                        {user.disabled ? "Enable" : "Disable"}
+                        </button>
+                    )}
+                    
+                    {user.upgrade_requested && (
+                        <button
+                            onClick={() => handleUpdateSubscription(user.username, 'premium')}
+                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                        >
+                            Duyệt Premium
+                        </button>
+                    )}
+
+                    {!user.upgrade_requested && user.role !== 'admin' && (
+                        <button
+                            onClick={() => handleUpdateSubscription(user.username, user.subscription_type === 'premium' ? 'free' : 'premium')}
+                            className="px-2 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600"
+                        >
+                            {user.subscription_type === 'premium' ? 'Hạ xuống Free' : 'Set Premium'}
+                        </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
