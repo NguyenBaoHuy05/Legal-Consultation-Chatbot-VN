@@ -51,9 +51,12 @@ class GeminiBot:
         except Exception as e:
             return json.dumps({"response": f"Xin lỗi, đã xảy ra lỗi khi gọi API Gemini: {str(e)}"}, ensure_ascii=False)
         
-    def generate_response_contract(self, query, variables):
+    def generate_response_contract(self, query, variables, messages=[]):
         system_prompt = f"""
         Bạn là trợ lý pháp luật AI. Hãy điền các biến hợp đồng dựa trên thông tin người dùng cung cấp.
+        Bạn có thể xem lại các tin nhắn trước đó để hiểu ngữ cảnh.
+
+        {messages}
 
         LUÔN trả về JSON ĐÚNG CÚ PHÁP theo mẫu dưới đây (không thêm chữ, không giải thích):
 
