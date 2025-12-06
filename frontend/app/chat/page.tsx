@@ -34,7 +34,6 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isContractMode, setIsContractMode] = useState(false);
 
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,6 +74,7 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+
   const loadHistory = async (token: string) => {
     try {
       const res = await axios.get(`${API_URL}/history`, {
@@ -113,12 +113,6 @@ export default function Home() {
   const startNewChat = () => {
     setMessages([]);
     setSessionId(Math.random().toString(36).substring(7));
-    setIsContractMode(false);
-  };
-  const startContract = () => {
-    setMessages([]);
-    setSessionId(Math.random().toString(36).substring(7));
-    setIsContractMode(true);
   };
 
   const saveGeminiKey = async () => {
@@ -174,7 +168,6 @@ export default function Home() {
         {
           message: userMsg,
           session_id: sessionId,
-          isContract: isContractMode,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -219,26 +212,10 @@ export default function Home() {
 
   return (
     <div className="container">
-      <div className="sidebar relative">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2">
-            ⚖️ LegalBot
-          </h2>
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
-            title="Cài đặt Gemini Key"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
-        <button
-          onClick={startContract}
-          className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800"
-        >
+      <div className="sidebar">
+        <h2>⚖️ Trợ Lý Pháp Luật</h2>
+
+        <button onClick={() => router.push("/constract")} className="p-3 w-full bg-green-700 rounded font-bold hover:bg-yellow-800 text-center text-white mb-4">
           Tạo hợp đồng
         </button>
         {showSettings && (
@@ -313,34 +290,13 @@ export default function Home() {
             </div>
           </div>
         )}
-        
-        <button onClick={startNewChat} className="btn bg-blue-600 hover:bg-blue-700 mb-4 w-full flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Cuộc trò chuyện mới
-        </button>
-
-        <div className="history-list flex-1 overflow-y-auto mb-4 pr-2 custom-scrollbar">
-            <h3 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider px-2">Lịch sử</h3>
-            <div className="space-y-1">
-            {history.map((item) => (
-                <div 
-                    key={item.session_id} 
-                    onClick={() => loadSession(item.session_id)}
-                    className={`group p-2.5 rounded-lg cursor-pointer text-sm truncate transition-all duration-200 flex items-center gap-2
-                      ${sessionId === item.session_id 
-                        ? 'bg-blue-600/20 text-blue-100 border border-blue-500/30' 
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                      }`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 flex-shrink-0 opacity-70">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3.75h9m-9 3.75h9m-9 3.75h9m-9 3.75h9" />
-                    </svg>
-                    <span className="truncate">{item.title}</span>
-                </div>
-            ))}
-            </div>
+        <div className="user-profile mt-auto pt-4 border-t border-gray-700 flex flex-col justify-center">
+          <p className="text-sm mb-2">
+            Xin chào, <strong>{user.full_name + " " + user.username}</strong>
+          </p>
+          <button onClick={handleLogout} className="logout-btn text-xs j">
+            Đăng xuất
+          </button>
         </div>
 
         <div className="user-profile mt-auto pt-4 border-t border-slate-700/50">
@@ -367,9 +323,7 @@ export default function Home() {
             <div className="welcome-screen">
               <h1>Xin chào! 👋</h1>
               <p>
-                {isContractMode
-                  ? "Tôi là trợ lý hợp đồng AI. Hãy cung cấp thông tin để tôi giúp bạn tạo hợp đồng."
-                  : "Tôi là trợ lý pháp luật AI. Hãy hỏi tôi bất cứ điều gì về luật pháp Việt Nam."}
+                  Tôi là trợ lý pháp luật AI. Hãy hỏi tôi bất cứ điều gì về luật pháp Việt Nam.
               </p>
             </div>
           )}

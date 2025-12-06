@@ -1,3 +1,4 @@
+import json
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime
@@ -47,7 +48,11 @@ class TokenData(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str
-    isContract: bool = False
+
+class ChatContractRequest(BaseModel):
+    message: str
+    ## dùng để lưu trữ các biến đã trích xuất từ hợp đồng
+    variables: Optional[dict] = {}
 
 class ConfigRequest(BaseModel):
     pinecone_api_key: str
