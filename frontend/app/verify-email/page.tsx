@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL =  process.env.API_URL ||'http://localhost:8000';
 
 export default function VerifyEmail() {
   const searchParams = useSearchParams();

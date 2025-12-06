@@ -5,7 +5,7 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { useRouter } from "next/navigation";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.API_URL || "http://localhost:8000";
 
 interface Message {
   role: "user" | "assistant";
@@ -320,7 +320,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {listTemplates.map((template) => (
               <div
-                key={template.id}
+                key={template.id + new Date().getTime()}
                 className="template-box border border-gray-300 p-8 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer bg-white hover:bg-blue-50"
                 onClick={() => {
                   handleSelectTemplate(template);
