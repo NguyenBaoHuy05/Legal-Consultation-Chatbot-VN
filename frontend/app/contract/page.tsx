@@ -32,6 +32,7 @@ export default function Home() {
   );
   //Biến lưu trữ json các biến đã trích xuất từ hợp đồng
   const [variabless, setVariabless] = useState<{ [key: string]: string }>({});
+  const [contentTemplate, setContentTemplate] = useState<string>("");
   const [listTemplates, setListTemplates] = useState<TemplateItem[]>([]);
 
   const router = useRouter();
@@ -67,6 +68,7 @@ export default function Home() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setListTemplates(res.data);
+        console.log("Fetched templates:", res.data);
       } catch (error) {
         console.error("Error fetching contracts:", error);
       }
@@ -115,6 +117,7 @@ export default function Home() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      console.log("Template download response:", res.data);
       let vars = res.data.variables;
 
       // Nếu backend vẫn trả về string → parse
@@ -127,6 +130,8 @@ export default function Home() {
       }
 
       setVariabless(vars);
+
+      setContentTemplate(res.data.content);
 
       setMessages((prev) => [
         ...prev,
@@ -173,6 +178,7 @@ export default function Home() {
           message: userMsg,
           variables: variabless,
           messages: messages,
+          contentTemplate: contentTemplate,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -352,16 +358,16 @@ export default function Home() {
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
                 {msg.link && (
                   // <div className="message assistant">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        downloadFile(msg.link);
-                      }}
-                      className="text-black-400 font-semibold hover:text-green-200 bg-green-500 px-4 py-2 rounded inline-block mt-2 "
-                    >
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      downloadFile(msg.link);
+                    }}
+                    className="text-black-400 font-semibold hover:text-green-200 bg-green-500 px-4 py-2 rounded inline-block mt-2 "
+                  >
                     Tải hợp đồng đã tạo
-                    </a>
+                  </a>
                   // </div>
                 )}
               </div>
