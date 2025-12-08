@@ -51,13 +51,13 @@ class GeminiBot:
         except Exception as e:
             return json.dumps({"response": f"Xin lỗi, đã xảy ra lỗi khi gọi API Gemini: {str(e)}"}, ensure_ascii=False)
         
-    def generate_response_contract(self, query, variables, messages=[]):
+    def generate_response_contract(self, query, variables, messages=[], contentTemplate=""):
         system_prompt = f"""
         Bạn là trợ lý pháp luật AI. Hãy điền các biến hợp đồng dựa trên thông tin người dùng cung cấp.
         Bạn có thể xem lại các tin nhắn trước đó để hiểu ngữ cảnh.
-
         {messages}
-
+        Bạn có thể tham khảo mẫu hợp đồng sau để biết các biến cần điền:
+        {contentTemplate}
         LUÔN trả về JSON ĐÚNG CÚ PHÁP theo mẫu dưới đây (không thêm chữ, không giải thích):
 
         {{
@@ -83,7 +83,8 @@ class GeminiBot:
             }},
             "status": "complete"
         }}
-
+        Lưu ý nếu người dùng kêu để trống thì cứ để trống giá trị biến đó (xem nội dung messages để hiểu rõ hơn yêu cầu người dùng).
+        Nếu người dùng hỏi cần những thông tin gì để điền hợp đồng, hãy tổng hợp thông tin cần điền thành một đoạn dễ hiểu trong trường "response".
         Dữ liệu hiện có:
         {json.dumps(variables, ensure_ascii=False)}
 

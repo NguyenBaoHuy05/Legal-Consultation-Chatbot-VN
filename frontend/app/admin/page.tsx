@@ -5,6 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import styles from "./page.module.css";
 
 interface FileRecord {
   filename: string;
@@ -24,8 +25,11 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<any[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [constractFiles, setConstractFiles] = useState<File[]>([]);
+  // const [constractFiles, setConstractFiles] = useState<File[]>([]);
   const [dbFiles, setDbFiles] = useState<FileRecord[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [contractName, setContractName] = useState("");
+  const [isDialogVisible, setIsDialogVisible] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -98,15 +102,15 @@ export default function AdminDashboard() {
   const handleUpdateSubscription = async (username: string, type: string) => {
     const token = localStorage.getItem("token");
     try {
-        await axios.put(
-            `${API_URL}/admin/users/${username}/subscription`,
-            { subscription_type: type },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success(`Đã cập nhật gói cước cho ${username} thành ${type}`);
-        fetchUsers(token!);
+      await axios.put(
+        `${API_URL}/admin/users/${username}/subscription`,
+        { subscription_type: type },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(`Đã cập nhật gói cước cho ${username} thành ${type}`);
+      fetchUsers(token!);
     } catch (error) {
-        toast.error("Lỗi cập nhật gói cước!");
+      toast.error("Lỗi cập nhật gói cước!");
     }
   };
 
@@ -164,19 +168,13 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleConstractSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setConstractFiles(Array.from(e.target.files));
-    }
-  };
-
   const handleDeleteFile = (index: number) => {
     setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
   };
 
-  const handleDeleteConstractFile = (index: number) => {
-    setConstractFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
-  };
+  // const handleDeleteConstractFile = (index: number) => {
+  //   setConstractFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  // };
 
   const handleSendToPinecone = async () => {
     if (uploadedFiles.length === 0) {
@@ -243,21 +241,65 @@ export default function AdminDashboard() {
     //   console.error("Failed to create file record:", error);
     // }
   };
+  // const handleConstractSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (e.target.files) {
+  //     setConstractFiles(Array.from(e.target.files));
+  //   }
+  // };
+  // const handleSendToSupabase = async () => {
+  //   if (constractFiles.length === 0) {
+  //     toast.error("Không có file nào để gửi đến Supabase.");
+  //     return;
+  //   }
 
-  const handleSendToSupabase = async () => {
-    if (constractFiles.length === 0) {
-      toast.error("Không có file nào để gửi đến Supabase.");
+  //   const token = localStorage.getItem("token");
+  //   const formData = new FormData();
+  //   for (let file of constractFiles) {
+  //     formData.append("files", file);
+  //   }
+  //   setStatus("Đang gửi file đến Supabase...");
+  //   // console.log("Uploading files:", formData.getAll("files"));
+  //   // return
+  //   try {
+  //     await axios.post(`${API_URL}/admin/upload-supabase`, formData, {
+  //       headers: {
+  //         "Content-Type": "multipart/form-data",
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+  //     setStatus("Gửi file đến Pinecone thành công!");
+  //     setUploadedFiles([]); // Clear uploaded files after sending
+  //     setDbFiles((prevDbFiles) => [
+  //       ...prevDbFiles,
+  //       ...uploadedFiles.map((file) => ({
+  //         filename: file.name,
+  //         size: file.size,
+  //         upload_date: new Date().toISOString(),
+  //         uploaded_by: "admin",
+  //         status: "processed",
+  //       })),
+  //     ]);
+  //     toast.success("Files sent to Pinecone successfully.");
+  //   } catch (error) {
+  //     setStatus("Lỗi khi gửi file đến Pinecone!");
+  //   }
+  // };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null; // Chỉ chọn một file
+    setSelectedFile(file);
+    setIsDialogVisible(true); // Hiển thị hộp thoại khi chọn file
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile || !contractName) {
+      alert("Vui lòng chọn file và nhập tên hợp đồng.");
       return;
     }
 
     const token = localStorage.getItem("token");
     const formData = new FormData();
-    for (let file of constractFiles) {
-      formData.append("files", file);
-    }
-    setStatus("Đang gửi file đến Supabase...");
-    // console.log("Uploading files:", formData.getAll("files"));
-    // return
+    formData.append("file", selectedFile);
     try {
       await axios.post(`${API_URL}/admin/upload-supabase`, formData, {
         headers: {
@@ -265,22 +307,28 @@ export default function AdminDashboard() {
           Authorization: `Bearer ${token}`,
         },
       });
-      setStatus("Gửi file đến Pinecone thành công!");
+      setStatus("Gửi file đến Supabase thành công!");
       setUploadedFiles([]); // Clear uploaded files after sending
-      setDbFiles((prevDbFiles) => [
-        ...prevDbFiles,
-        ...uploadedFiles.map((file) => ({
-          filename: file.name,
-          size: file.size,
-          upload_date: new Date().toISOString(),
-          uploaded_by: "admin",
-          status: "processed",
-        })),
-      ]);
-      toast.success("Files sent to Pinecone successfully.");
+      toast.success("Files sent to Supabase successfully.");
     } catch (error) {
-      setStatus("Lỗi khi gửi file đến Pinecone!");
+      setStatus("Lỗi khi gửi file đến Supabase!");
     }
+    try {
+      await axios.post(
+        `${API_URL}/admin/save-template`,
+        {
+          name: contractName,
+          filename: selectedFile.name,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+    } catch (error) {
+      console.error("Failed to save template metadata:", error);
+    }
+    setSelectedFile(null);
+    setContractName("");
   };
 
   return (
@@ -373,20 +421,24 @@ export default function AdminDashboard() {
           <h2>Úp hợp đồng</h2>
           <input
             type="file"
-            multiple
+            onChange={handleFileChange}
             accept=".pdf,.txt,.docx"
-            onChange={handleConstractSelection}
             className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           <br />
+          {selectedFile && (
+            <div className="file-info">
+              <p>File đã chọn: {selectedFile.name}</p>
+            </div>
+          )}
           <button
-            onClick={handleSendToSupabase}
-            className="px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            onClick={handleSubmit}
+            className="mt-4 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
-            Send Supabase
+            Submit Save and Send Supabase
           </button>
 
-          {constractFiles.length > 0 && (
+          {/* {constractFiles.length > 0 && (
             <div className="mt-4 max-h-[calc(100vh-200px)] overflow-y-auto">
               <h3>Danh sách file đã tải lên:</h3>
               <ul>
@@ -406,7 +458,7 @@ export default function AdminDashboard() {
                 ))}
               </ul>
             </div>
-          )}
+          )} */}
         </div>
       </div>
       <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -485,16 +537,24 @@ export default function AdminDashboard() {
                   </span>
                 </td>
                 <td className="p-2.5">
-                    <div className="flex flex-col gap-1">
-                        <span className={`font-bold ${user.subscription_type === 'premium' ? 'text-yellow-600' : 'text-slate-600'}`}>
-                            {user.subscription_type === 'premium' ? 'Premium' : 'Free'}
-                        </span>
-                        {user.upgrade_requested && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded">
-                                Yêu cầu nâng cấp
-                            </span>
-                        )}
-                    </div>
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className={`font-bold ${
+                        user.subscription_type === "premium"
+                          ? "text-yellow-600"
+                          : "text-slate-600"
+                      }`}
+                    >
+                      {user.subscription_type === "premium"
+                        ? "Premium"
+                        : "Free"}
+                    </span>
+                    {user.upgrade_requested && (
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded">
+                        Yêu cầu nâng cấp
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="p-2.5">
                   <span
@@ -508,36 +568,47 @@ export default function AdminDashboard() {
                 <td className="p-2.5">
                   <div className="flex gap-2">
                     {user.role !== "admin" && (
-                        <button
+                      <button
                         onClick={() =>
-                            toggleUserStatus(user.username, user.disabled)
+                          toggleUserStatus(user.username, user.disabled)
                         }
                         className={`px-2 py-1 text-white text-xs rounded cursor-pointer border-none ${
-                            user.disabled
+                          user.disabled
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-red-500 hover:bg-red-600"
                         }`}
-                        >
+                      >
                         {user.disabled ? "Enable" : "Disable"}
-                        </button>
-                    )}
-                    
-                    {user.upgrade_requested && (
-                        <button
-                            onClick={() => handleUpdateSubscription(user.username, 'premium')}
-                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                        >
-                            Duyệt Premium
-                        </button>
+                      </button>
                     )}
 
-                    {!user.upgrade_requested && user.role !== 'admin' && (
-                        <button
-                            onClick={() => handleUpdateSubscription(user.username, user.subscription_type === 'premium' ? 'free' : 'premium')}
-                            className="px-2 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600"
-                        >
-                            {user.subscription_type === 'premium' ? 'Hạ xuống Free' : 'Set Premium'}
-                        </button>
+                    {user.upgrade_requested && (
+                      <button
+                        onClick={() =>
+                          handleUpdateSubscription(user.username, "premium")
+                        }
+                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                      >
+                        Duyệt Premium
+                      </button>
+                    )}
+
+                    {!user.upgrade_requested && user.role !== "admin" && (
+                      <button
+                        onClick={() =>
+                          handleUpdateSubscription(
+                            user.username,
+                            user.subscription_type === "premium"
+                              ? "free"
+                              : "premium"
+                          )
+                        }
+                        className="px-2 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600"
+                      >
+                        {user.subscription_type === "premium"
+                          ? "Hạ xuống Free"
+                          : "Set Premium"}
+                      </button>
                     )}
                   </div>
                 </td>
@@ -549,6 +620,34 @@ export default function AdminDashboard() {
 
       {status && (
         <div className="mt-4 p-4 bg-gray-200 rounded text-center">{status}</div>
+      )}
+
+      {isDialogVisible && (
+        <div className={styles.dialogOverlay}>
+          <div className={styles.dialogBox}>
+            <h2>Thông tin hợp đồng</h2>
+            <div className={styles.contractNameSection}>
+              <label htmlFor="contractName">Tên hợp đồng:</label>
+              <input
+                id="contractName"
+                type="text"
+                value={contractName}
+                onChange={(e) => setContractName(e.target.value)}
+                placeholder="Nhập tên hợp đồng"
+              />
+            </div>
+            <div className={styles.fileInfo}>
+              <p>Filename: {selectedFile ? selectedFile.name : ""}</p>
+            </div>
+            <button
+              className={styles.submitBtn}
+              disabled={!contractName || !selectedFile}
+              onClick={() => setIsDialogVisible(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

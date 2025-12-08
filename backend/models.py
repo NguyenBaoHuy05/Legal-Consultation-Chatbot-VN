@@ -59,7 +59,8 @@ class ChatContractRequest(BaseModel):
     ## dùng để lưu trữ các biến đã trích xuất từ hợp đồng
     variables: Optional[dict] = {}
     messages: Optional[List[MessageForContract]] = []
-
+    contentTemplate: Optional[str] = None
+    
 class ConfigRequest(BaseModel):
     pinecone_api_key: str
     pinecone_index_name: str
@@ -72,6 +73,10 @@ class ChatEntry(BaseModel):
     sources: List[str] = []
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     username: str
+
+class ContractFile(BaseModel):
+    name: str
+    filename: str
 
 class Message(BaseModel):
     role: str # "user" or "assistant"
