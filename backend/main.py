@@ -715,5 +715,5 @@ async def download_file(filename: str, current_user: UserInDB = Depends(get_curr
     return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.getenv("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
