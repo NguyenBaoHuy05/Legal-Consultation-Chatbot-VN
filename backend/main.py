@@ -37,13 +37,12 @@ app = FastAPI()
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://legalbot.onrender.com"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -714,6 +713,5 @@ async def download_file(filename: str, current_user: UserInDB = Depends(get_curr
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
 
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 10000))
-    uvicorn.run(app, host="127.0.0.1", port=port)
+port = int(os.getenv("PORT", 10000))
+uvicorn.run(app, host="0.0.0.0", port=port)
