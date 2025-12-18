@@ -713,5 +713,6 @@ async def download_file(filename: str, current_user: UserInDB = Depends(get_curr
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
 
-port = int(os.getenv("PORT", 10000))
-uvicorn.run(app, host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
